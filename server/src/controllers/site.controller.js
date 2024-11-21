@@ -37,39 +37,58 @@ const assignVLANFromRange = async (regionId) => {
 
   throw new Error('No available VLANs in this range');
 };
-
 const findNextAvailableIP = async (blocks) => {
   for (const block of blocks) {
     const [network, cidr] = block.block.split('/');
-    const subnetSize = Math.pow(2, 32 - parseInt(cidr));
-    const networkParts = network.split('.').map(Number);
+    if (parseInt(cidr) !== 24) {
+      console.log('Block is not a /24, skipping:', block.block);
+      continue;
+    }
 
-    // Calculate the range of IPs in this block
-    const startIP = (networkParts[0] << 24) | (networkParts[1] << 16) | (networkParts[2] << 8) | networkParts[3];
-    const endIP = startIP + subnetSize - 1;
+    try {
+      // Modified query to handle IP address casting correctly
+      const nextAvailableSubnetQuery = `
+        WITH RECURSIVE 
+        subnet_series AS (
+          SELECT host(($1::inet + 0)) as ip
+          UNION ALL
+          SELECT host(($1::inet + (n.i * 4)))::text as ip
+          FROM generate_series(1, 63) n(i)
+        ),
+        used_ips AS (
+          SELECT ip FROM sites WHERE ip::inet << $1::inet
+        )
+        SELECT ss.ip
+        FROM subnet_series ss
+        WHERE NOT EXISTS (
+          SELECT 1 FROM used_ips ui
+          WHERE (ui.ip::inet = (ss.ip::inet + 1) OR ui.ip::inet = (ss.ip::inet + 2))
+        )
+        ORDER BY ss.ip::inet
+        LIMIT 1;
+      `;
 
-    // Fetch used IPs in this block
-    const usedIPsResult = await pool.query(
-      'SELECT ip FROM sites WHERE ip BETWEEN $1 AND $2',
-      [intToIP(startIP + 1), intToIP(endIP - 1)]
-    );
-
-    const usedIPs = new Set(usedIPsResult.rows.map(row => ipToInt(row.ip)));
-    console.log('Checking IP block:', block.block);
-    console.log('Used IPs:', Array.from(usedIPs).map(intToIP));
-
-    // Find the next available IP
-    for (let ip = startIP + 1; ip < endIP; ip++) {
-      if (!usedIPs.has(ip)) {
-        console.log('Found available IP:', intToIP(ip));
-        return intToIP(ip);
+      const result = await pool.query(nextAvailableSubnetQuery, [block.block]);
+      
+      if (result.rows.length > 0) {
+        const nextSubnet = result.rows[0].ip;
+        // Calculate the first usable IP (subnet + 1)
+        const firstUsableIP = `${nextSubnet.split('.').slice(0, -1).join('.')}.${parseInt(nextSubnet.split('.')[3]) + 1}`;
+        console.log('Found next available /30 subnet starting at:', nextSubnet);
+        console.log('First usable IP:', firstUsableIP);
+        return firstUsableIP;
       }
+    } catch (error) {
+      console.error('Error finding next available subnet:', error);
+      continue;
     }
   }
-  console.log('No available IPs found in any block');
-  return null; // No available IPs
+  
+  console.log('No available /30 subnets found in any block');
+  return null;
 };
 
+// Helper functions
 const intToIP = (int) => {
   return [
     (int >> 24) & 255,
@@ -83,31 +102,49 @@ const ipToInt = (ip) => {
   return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0);
 };
 
+
+
 exports.generateIPForSite = async (req, res) => {
   const { siteName, regionId } = req.body;
   console.log('generateIPForSite called with:', req.body);
+  
   try {
+    // Start a database transaction
+    await pool.query('BEGIN');
+
     const blocksResult = await pool.query(
       'SELECT block FROM ip_blocks WHERE region_id = $1',
       [regionId]
     );
     console.log('IP blocks for region:', blocksResult.rows);
 
+    if (blocksResult.rows.length === 0) {
+      await pool.query('ROLLBACK');
+      return res.status(400).json({ error: 'No IP blocks defined for this region' });
+    }
+
     const availableIP = await findNextAvailableIP(blocksResult.rows);
 
     if (!availableIP) {
+      await pool.query('ROLLBACK');
       return res.status(400).json({ error: 'No available IPs in this region' });
     }
 
     const vlan = await assignVLANFromRange(regionId);
 
+    // Insert the new site with the assigned IP and VLAN
     await pool.query(
       'INSERT INTO sites (name, ip, region_id, vlan) VALUES ($1, $2, $3, $4)',
       [siteName, availableIP, regionId, vlan]
     );
 
+    // Commit the transaction
+    await pool.query('COMMIT');
+
     res.json({ siteName, ip: availableIP, vlan });
   } catch (error) {
+    // Rollback the transaction in case of any error
+    await pool.query('ROLLBACK');
     console.error('Error generating IP:', error);
     res.status(500).json({ error: error.message });
   }
