@@ -25,7 +25,7 @@ import {
   Language as RegionsIcon,
   Router as IPBlocksIcon,
   Business as SitesIcon,
-  Settings as VLANIcon,
+  Lan as VLANIcon,
   ChevronLeft as ChevronLeftIcon,
   Add as AddIcon,
   Person as ProfileIcon,
@@ -35,6 +35,7 @@ import {
   Lock as PasswordIcon,
   Logout as LogoutIcon,
   ViewStream as VCIDIcon,
+  Settings as ConfigIcon,
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -90,6 +91,7 @@ const menuItems = [
   { path: '/vlan-ranges', label: 'VLAN Ranges', icon: <VLANIcon />, adminOnly: true },
   { path: '/vcid-ranges', label: 'VCID Ranges', icon: <VCIDIcon />, adminOnly: true },
   { path: '/generate-ip', label: 'Generate IP', icon: <AddIcon />, adminOnly: false },
+  { path: '/config-generator', label: 'Configuration', icon: <ConfigIcon />, adminOnly: false },
 ];
 
 const NavBar = ({ children }) => {

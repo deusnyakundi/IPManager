@@ -9,6 +9,7 @@ const userRoutes = require('./routes/user.routes');
 const siteRoutes = require('./routes/site.routes');
 const vlanBlockRoutes = require('./routes/vlanblock.routes');
 const vcidRoutes = require('./routes/vcid.routes');
+const configRoutes = require('./routes/config.routes');
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/vlanblock', vlanBlockRoutes);
 app.use('/api/vcid', vcidRoutes);
+app.use('/api/config', configRoutes);
 
 const PORT = process.env.PORT || 9000;
 app.listen(PORT, () => {

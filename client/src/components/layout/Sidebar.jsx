@@ -17,7 +17,8 @@ import {
   Business as SitesIcon,
   Settings as VLANIcon,
   Dashboard as DashboardIcon,
-  ViewStream as VCIDIcon
+  ViewStream as VCIDIcon,
+  Description as ConfigIcon
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -40,7 +41,7 @@ const menuItems = [
   { path: '/sites', label: 'Sites', icon: <SitesIcon /> },
   { path: '/vlan-ranges', label: 'VLAN Ranges', icon: <VLANIcon /> },
   { path: '/vcid-ranges', label: 'VCID Ranges', icon: <VCIDIcon /> },
- 
+  { path: '/config-generator', label: 'Configuration', icon: <ConfigIcon /> },
 ];
 
 const Sidebar = () => {

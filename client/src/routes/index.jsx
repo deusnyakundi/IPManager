@@ -10,6 +10,7 @@ import ManageVLANRanges from '../components/admin/ManageVLANBlocks';
 import ManageIPBlocks from '../components/admin/ManageIPBlocks';
 import ManageRegions from '../components/admin/ManageRegions';
 import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
+import ConfigurationGenerator from '../components/config/ConfigurationGenerator';
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ const AppRoutes = () => {
         console.log('Rendering VCID route') ||
         user?.role === 'admin' ? <ManageVCIDRanges/> : <Navigate to="/" replace />
       } />
+      <Route path="/config-generator" element={user?.role === 'admin' ? <ConfigurationGenerator/> : <Navigate to="/" replace />} />
       <Route path="/sites" element={user?.role === 'admin' ? <SitesManagement/> : <Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       
