@@ -5,12 +5,15 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import AdminPanel from '../pages/AdminPanel';
 import SiteSubmission from '../components/user/SiteSubmission';
+import SitesManagement from '../pages/SitesManagement';
 import ManageVLANRanges from '../components/admin/ManageVLANBlocks';
 import ManageIPBlocks from '../components/admin/ManageIPBlocks';
 import ManageRegions from '../components/admin/ManageRegions';
+import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
 
 const AppRoutes = () => {
   const { user } = useAuth();
+  console.log('User in routes:', user);
 
   return (
     <Routes>
@@ -22,7 +25,11 @@ const AppRoutes = () => {
       <Route path="/vlan-ranges" element={user?.role === 'admin' ? <ManageVLANRanges/> : <Navigate to="/" replace />} />
       <Route path="/ip-blocks" element={user?.role === 'admin' ? <ManageIPBlocks/> : <Navigate to="/" replace />} />
       <Route path="/regions" element={user?.role === 'admin' ? <ManageRegions/> : <Navigate to="/" replace />} />
-      <Route path="/sites" element={user?.role === 'admin' ? <SiteSubmission/> : <Navigate to="/" replace />} />
+      <Route path="/vcid-ranges" element={
+        console.log('Rendering VCID route') ||
+        user?.role === 'admin' ? <ManageVCIDRanges/> : <Navigate to="/" replace />
+      } />
+      <Route path="/sites" element={user?.role === 'admin' ? <SitesManagement/> : <Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       
     </Routes>

@@ -16,7 +16,8 @@ import {
   Router as IPBlocksIcon,
   Business as SitesIcon,
   Settings as VLANIcon,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  ViewStream as VCIDIcon
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -38,6 +39,8 @@ const menuItems = [
   { path: '/ip-blocks', label: 'IP Blocks', icon: <IPBlocksIcon /> },
   { path: '/sites', label: 'Sites', icon: <SitesIcon /> },
   { path: '/vlan-ranges', label: 'VLAN Ranges', icon: <VLANIcon /> },
+  { path: '/vcid-ranges', label: 'VCID Ranges', icon: <VCIDIcon /> },
+ 
 ];
 
 const Sidebar = () => {

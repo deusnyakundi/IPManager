@@ -18,13 +18,14 @@ const ManageIPBlocks = () => {
   }, []);
 
   const fetchIPBlocks = async () => {
+    console.log('Fetching IP blocks...');
     try {
       const response = await ipAPI.getIPBlocks();
-      console.log('IP Blocks:', response.data);
+      console.log('IP blocks response:', response.data);
       setIPBlocks(response.data);
     } catch (error) {
+      console.error('Error details:', error.response || error);
       console.error('Error fetching IP blocks:', error);
-      setError('Failed to fetch IP blocks.');
     }
   };
 

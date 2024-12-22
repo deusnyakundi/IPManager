@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 const siteController = require('../controllers/site.controller');
 
-// Route to generate an IP for a site
-router.post('/generate-ip', siteController.generateIPForSite);
-
-// Route to get all sites (if needed)
+// Site Management Routes
 router.get('/', siteController.getAllSites);
-
-// Route to delete a site (if needed)
+router.post('/', siteController.createSite);
+router.put('/:id', siteController.updateSite);
 router.delete('/:id', siteController.deleteSite);
+
+// IP Generation Route
+router.post('/generate-ip', siteController.generateIPForSite);
 
 module.exports = router;

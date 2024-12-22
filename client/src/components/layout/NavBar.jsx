@@ -34,6 +34,7 @@ import {
   Help as HelpIcon,
   Lock as PasswordIcon,
   Logout as LogoutIcon,
+  ViewStream as VCIDIcon,
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -87,6 +88,7 @@ const menuItems = [
   { path: '/regions', label: 'Regions', icon: <RegionsIcon />, adminOnly: true },
   { path: '/ip-blocks', label: 'IP Blocks', icon: <IPBlocksIcon />, adminOnly: true },
   { path: '/vlan-ranges', label: 'VLAN Ranges', icon: <VLANIcon />, adminOnly: true },
+  { path: '/vcid-ranges', label: 'VCID Ranges', icon: <VCIDIcon />, adminOnly: true },
   { path: '/generate-ip', label: 'Generate IP', icon: <AddIcon />, adminOnly: false },
 ];
 
@@ -98,6 +100,9 @@ const NavBar = ({ children }) => {
   const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications] = useState([]); // For notification badge
+
+  console.log('Current location:', location.pathname);
+  console.log('User role:', user?.role);
 
   // If not logged in, only render the children (which will be the Login page)
   if (!user) {
@@ -302,6 +307,7 @@ const NavBar = ({ children }) => {
       </Drawer>
       <Main open={open}>
         <DrawerHeader />
+        {console.log('Rendering children:', children)}
         {children}
       </Main>
     </Box>

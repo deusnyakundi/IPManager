@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { vlanRangeAPI, regionAPI } from '../../utils/api';
+import api from '../../utils/api';
 import { Typography, Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Select, MenuItem, FormControl, InputLabel, Alert, TextField } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 
@@ -17,7 +17,7 @@ const ManageVLANRanges = () => {
 
   const fetchVLANRanges = async () => {
     try {
-      const response = await vlanRangeAPI.getVLANRanges();
+      const response = await api.get('/vlanblock/ranges');
       setVlanRanges(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching VLAN ranges:', error);
@@ -27,7 +27,7 @@ const ManageVLANRanges = () => {
 
   const fetchRegions = async () => {
     try {
-      const response = await regionAPI.getRegions();
+      const response = await api.get('/regions');
       setRegions(response.data);
     } catch (error) {
       console.error('Error fetching regions:', error);
@@ -47,7 +47,11 @@ const ManageVLANRanges = () => {
       return;
     }
     try {
-      await vlanRangeAPI.createVLANRange({ start_vlan: startVLAN, end_vlan: endVLAN, regionId: selectedRegion });
+      await api.post('/vlanblock/ranges', { 
+        start_vlan: startVLAN, 
+        end_vlan: endVLAN, 
+        region_id: selectedRegion 
+      });
       setNewRange({ start: '', end: '' });
       setSelectedRegion('');
       setError('');
@@ -60,11 +64,10 @@ const ManageVLANRanges = () => {
 
   const handleDeleteRange = async (id) => {
     try {
-      await vlanRangeAPI.deleteVLANRange(id);
+      await api.delete(`/vlanblock/ranges/${id}`);
       fetchVLANRanges();
     } catch (error) {
       console.error('Error deleting VLAN range:', error);
-      setError('Failed to delete VLAN range.');
     }
   };
 

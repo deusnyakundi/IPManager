@@ -7,6 +7,7 @@ const api = axios.create({
     withCredentials: true
   },
 });
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -54,7 +55,7 @@ api.interceptors.response.use(
 
 export const ipAPI = {
     getIPBlocks: () => api.get('/ip/blocks'),
-    createIPBlock: (data) => api.post('/ip/blocks', data), // Ensure data is passed directly
+    createIPBlock: (data) => api.post('/ip/blocks', data),
     deleteIPBlock: (id) => api.delete(`/ip/blocks/${id}`),
   };
 
@@ -83,10 +84,13 @@ export const vlanRangeAPI = {
   deleteVLANRange: (id) => api.delete(`/vlan-ranges/${id}`),
 };
 
-  // Define the Site API functions
-  export const siteAPI = {
-    createSite: (data, config) => api.post('/sites/generate-ip', data, config),
-    getSites: () => api.get('/sites'),
-    deleteSite: (id) => api.delete(`/sites/${id}`)
-  };
+// Define the Site API functions
+export const siteAPI = {
+  createSite: (data, config) => api.post('/sites/generate-ip', data, config),
+  getSites: () => api.get('/sites'),
+  deleteSite: (id) => api.delete(`/sites/${id}`),
+  generateIP: (siteId) => api.post('/sites/generate-ip', { siteId }),
+  getAllSites: (params) => api.get('/sites', { params }),
+};
+
 export default api;
