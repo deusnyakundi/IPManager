@@ -1,78 +1,121 @@
-import React, { useCallback } from 'react';
-import {
-  Autocomplete,
-  TextField,
-  CircularProgress
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  TextField, 
+  Paper, 
+  Box, 
+  Typography, 
+  CircularProgress,
+  ClickAwayListener
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
-const SearchableSiteSelect = ({ 
-  sites = [], 
-  value, 
+const SearchableSiteSelect = ({
+  sites = [],
+  value,
   onChange,
   loading = false,
   error = null,
   label = "Select Site",
   required = false
 }) => {
-  const uniqueSites = Array.from(new Map(sites.map(site => [site.id, site])).values());
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const inputRef = useRef(null);
 
-  // Create a memoized filter function
-  const filterSites = useCallback((options, { inputValue }) => {
-    if (!inputValue) return options;
-    
-    const searchTerm = inputValue.toLowerCase().trim();
-    
-    // Debugging: Log the search term and options
-    console.log('Filtering with search term:', searchTerm);
-    
-    return options.filter(site => {
-      if (!site || !site.name) return false;
-      
-      const isMatch = site.name.toLowerCase().indexOf(searchTerm) !== -1;
-      
-      // Debugging: Log each match
-      if (isMatch) {
-        console.log('Matched site:', site.name);
-      }
-      
-      return isMatch;
-    });
-  }, [sites]);
+  // Close dropdown when clicking outside
+  const handleClickAway = () => {
+    setIsOpen(false);
+  };
+
+  // Filter sites based on search term
+  const filteredSites = sites.filter(site => {
+    if (!searchTerm) return true;
+    return site.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // Handle site selection
+  const handleSelect = (site) => {
+    onChange(site);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  // Display value in input
+  const displayValue = value 
+    ? `${value.name} ${value.region?.name ? `(${value.region.name})` : ''}`
+    : '';
 
   return (
-    <Autocomplete
-      options={uniqueSites}
-      getOptionLabel={(option) => `${option.name} ${option.region?.name ? `(${option.region.name})` : ''}`}
-      value={value}
-      onChange={(_, newValue) => onChange(newValue)}
-      loading={loading}
-      fullWidth
-      autoComplete={false}
-      disableCloseOnSelect={false}
-      isOptionEqualToValue={(option, value) => option.id === value.id}
-      filterOptions={filterSites}
-      clearOnBlur={false}
-      clearOnEscape={true}
-      renderInput={(params) => (
+    <ClickAwayListener onClickAway={handleClickAway}>
+      <Box sx={{ position: 'relative', width: '100%' }}>
         <TextField
-          {...params}
-          label={label}
+          ref={inputRef}
+          fullWidth
           required={required}
           error={!!error}
           helperText={error}
+          placeholder={label}
+          value={isOpen ? searchTerm : displayValue}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onFocus={() => setIsOpen(true)}
           InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
+            startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
+            endAdornment: loading && <CircularProgress size={20} />,
+            sx: { 
+              height: '32px',
+              minHeight: '32px',
+              fontSize: '0.875rem',
+            }
           }}
         />
-      )}
-    />
+
+        {isOpen && (
+          <Paper
+            sx={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              mt: 0.5,
+              height: 'calc(100vh - 250px)',
+              overflow: 'auto',
+              zIndex: 1000,
+              boxShadow: 3,
+              '& .MuiBox-root': {
+                py: 1,
+                px: 2,
+              }
+            }}
+          >
+            {filteredSites.length > 0 ? (
+              filteredSites.map((site) => (
+                <Box
+                  key={site.id}
+                  onClick={() => handleSelect(site)}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'action.hover'
+                    }
+                  }}
+                >
+                  <Typography variant="body2">
+                    {site.name} {site.region?.name && `(${site.region.name})`}
+                  </Typography>
+                </Box>
+              ))
+            ) : (
+              <Box sx={{ p: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No sites found
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        )}
+      </Box>
+    </ClickAwayListener>
   );
 };
 
-export default SearchableSiteSelect; 
+export default SearchableSiteSelect;
