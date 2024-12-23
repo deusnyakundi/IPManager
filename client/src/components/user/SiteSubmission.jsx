@@ -94,10 +94,15 @@ const SiteSubmission = () => {
             container 
             justifyContent="space-between" 
             alignItems="center" 
-            spacing={1}
+            spacing={0}
             sx={{ 
-              minHeight: '36px',
-              py: 0
+              minHeight: '32px',
+              py: 0,
+              m: 0,
+              '& .MuiGrid-item': {
+                p: 0,
+                m: 0
+              }
             }}
           >
             <Grid item>
@@ -107,6 +112,7 @@ const SiteSubmission = () => {
                   fontSize: '1.25rem',
                   lineHeight: 1,
                   m: 0,
+                  p: 0,
                   color: 'text.primary',
                 }}
               >
@@ -122,15 +128,7 @@ const SiteSubmission = () => {
         }}>
           <Box sx={{ p: 2 }}>
             {error && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 2,
-                  '& .MuiAlert-message': {
-                    color: 'error.main',
-                  }
-                }}
-              >
+              <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
             )}
@@ -154,12 +152,22 @@ const SiteSubmission = () => {
                     sx={{ 
                       '& .MuiInputBase-root': {
                         height: '32px',
+                        minHeight: '32px'
                       },
                       '& .MuiOutlinedInput-input': {
-                        padding: '4px 14px',
+                        padding: '2px 14px',
                       },
                       '& .MuiAutocomplete-input': {
                         padding: '0 !important',
+                      },
+                      '& .MuiAutocomplete-endAdornment': {
+                        top: 'calc(50% - 12px)',
+                      },
+                      '& .MuiInputLabel-root': {
+                        transform: 'translate(14px, 8px) scale(1)',
+                      },
+                      '& .MuiInputLabel-shrink': {
+                        transform: 'translate(14px, -6px) scale(0.75)',
                       }
                     }}
                   />
@@ -171,7 +179,7 @@ const SiteSubmission = () => {
                   size="small"
                   sx={{ 
                     height: '32px',
-                    minHeight: '32px',
+                    minHeight: '32px'
                   }}
                 >
                   Generate IP
@@ -179,15 +187,7 @@ const SiteSubmission = () => {
               </Box>
 
               {generatedIP && (
-                <Paper 
-                  variant="outlined" 
-                  sx={{ 
-                    mt: 3,
-                    p: 2,
-                    backgroundColor: 'background.paper',
-                    maxWidth: '400px',
-                  }}
-                >
+                <Paper variant="outlined" sx={{ mt: 3, p: 2 }}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     Generated Values
                   </Typography>

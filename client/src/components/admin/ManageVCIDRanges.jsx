@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
+  Container,
+  Grid,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
+  Typography,
+  Button,
+  Box,
   TableContainer,
+  Table,
   TableHead,
+  TableBody,
   TableRow,
+  TableCell,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,8 +22,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Typography,
-  IconButton
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import api from '../../utils/api';
@@ -100,54 +102,131 @@ const ManageVCIDRanges = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      {console.log('Rendering VCID ranges:', vcidRanges)}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5">VCID Ranges</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpen(true)}
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
         >
-          Add VCID Range
-        </Button>
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={1}
+            sx={{ 
+              minHeight: '36px',
+              py: 0
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
+                VCID Ranges
+              </Typography>
+            </Grid>
+            <Grid item>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setOpen(true)}
+                size="small"
+                sx={{ height: '32px' }}
+              >
+                Add VCID Range
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+        }}>
+          <Box sx={{ p: 1 }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Region</TableCell>
+                    <TableCell>Primary VCID Range</TableCell>
+                    <TableCell>Secondary VCID Range</TableCell>
+                    <TableCell>VSI ID Range</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {vcidRanges.map((range) => (
+                    <TableRow key={range.id}>
+                      <TableCell>{range.region_name}</TableCell>
+                      <TableCell>{`${range.start_primary_vcid} - ${range.end_primary_vcid}`}</TableCell>
+                      <TableCell>{`${range.start_secondary_vcid} - ${range.end_secondary_vcid}`}</TableCell>
+                      <TableCell>{`${range.start_vsi_id} - ${range.end_vsi_id}`}</TableCell>
+                      <TableCell align="right">
+                        <IconButton 
+                          size="small"
+                          onClick={() => handleDelete(range.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </Paper>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Region</TableCell>
-              <TableCell>Primary VCID Range</TableCell>
-              <TableCell>Secondary VCID Range</TableCell>
-              <TableCell>VSI ID Range</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {vcidRanges.map((range) => (
-              <TableRow key={range.id}>
-                <TableCell>{range.region_name}</TableCell>
-                <TableCell>{`${range.start_primary_vcid} - ${range.end_primary_vcid}`}</TableCell>
-                <TableCell>{`${range.start_secondary_vcid} - ${range.end_secondary_vcid}`}</TableCell>
-                <TableCell>{`${range.start_vsi_id} - ${range.end_vsi_id}`}</TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleDelete(range.id)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+      <Dialog 
+        open={open} 
+        onClose={() => setOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            '& .MuiDialogTitle-root': {
+              fontSize: '1.25rem',
+              p: 2,
+            },
+            '& .MuiDialogContent-root': {
+              p: 2,
+            },
+            '& .MuiDialogActions-root': {
+              p: 2,
+            },
+          }
+        }}
+      >
         <form onSubmit={handleSubmit}>
           <DialogTitle>Add VCID Range</DialogTitle>
           <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-              <FormControl fullWidth>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Region</InputLabel>
                 <Select
                   value={formData.region_id}
@@ -165,6 +244,7 @@ const ManageVCIDRanges = () => {
 
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
+                  size="small"
                   label="Start Primary VCID"
                   type="number"
                   value={formData.start_primary_vcid}
@@ -173,6 +253,7 @@ const ManageVCIDRanges = () => {
                   required
                 />
                 <TextField
+                  size="small"
                   label="End Primary VCID"
                   type="number"
                   value={formData.end_primary_vcid}
@@ -184,6 +265,7 @@ const ManageVCIDRanges = () => {
 
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
+                  size="small"
                   label="Start Secondary VCID"
                   type="number"
                   value={formData.start_secondary_vcid}
@@ -192,6 +274,7 @@ const ManageVCIDRanges = () => {
                   required
                 />
                 <TextField
+                  size="small"
                   label="End Secondary VCID"
                   type="number"
                   value={formData.end_secondary_vcid}
@@ -203,6 +286,7 @@ const ManageVCIDRanges = () => {
 
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
+                  size="small"
                   label="Start VSI ID"
                   type="number"
                   value={formData.start_vsi_id}
@@ -211,6 +295,7 @@ const ManageVCIDRanges = () => {
                   required
                 />
                 <TextField
+                  size="small"
                   label="End VSI ID"
                   type="number"
                   value={formData.end_vsi_id}
@@ -222,14 +307,24 @@ const ManageVCIDRanges = () => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={loading}>
+            <Button 
+              onClick={() => setOpen(false)}
+              size="small"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={loading}
+              size="small"
+            >
               Add Range
             </Button>
           </DialogActions>
         </form>
       </Dialog>
-    </Box>
+    </Container>
   );
 };
 

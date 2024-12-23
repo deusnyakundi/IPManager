@@ -115,10 +115,15 @@ const ConfigurationGenerator = () => {
             container 
             justifyContent="space-between" 
             alignItems="center" 
-            spacing={1}
+            spacing={0}
             sx={{ 
-              minHeight: '36px',
-              py: 0
+              minHeight: '32px',
+              py: 0,
+              m: 0,
+              '& .MuiGrid-item': { 
+                p: 0,
+                m: 0
+              }
             }}
           >
             <Grid item>
@@ -128,21 +133,20 @@ const ConfigurationGenerator = () => {
                   fontSize: '1.25rem',
                   lineHeight: 1,
                   m: 0,
+                
                   color: 'text.primary',
                 }}
               >
                 Configuration Generator
               </Typography>
             </Grid>
-            <Grid item sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  gap: 0.5,
-                  alignItems: 'center',
-                  height: '32px',
-                }}
-              >
+            <Grid item>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                alignItems: 'center',
+                height: '32px'
+              }}>
                 <TextField
                   size="small"
                   variant="outlined"
@@ -153,35 +157,39 @@ const ConfigurationGenerator = () => {
                     startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
                     sx: { 
                       height: '32px',
+                      minHeight: '32px',
                       fontSize: '0.875rem',
+                      '& .MuiOutlinedInput-input': {
+                        padding: '2px 14px',
+                      },
                       '& .MuiOutlinedInput-notchedOutline': {
                         borderColor: 'rgba(0, 0, 0, 0.12)',
                       },
                     }
                   }}
                 />
+                <FormControl sx={{ width: 200 }} size="small">
+                  <InputLabel size="small">OLT Model</InputLabel>
+                  <Select
+                    value={selectedOLT}
+                    onChange={(e) => setSelectedOLT(e.target.value)}
+                    label="OLT Model"
+                    sx={{ 
+                      height: '32px',
+                      minHeight: '32px',
+                      '& .MuiOutlinedInput-input': {
+                        padding: '2px 14px',
+                      }
+                    }}
+                  >
+                    {OLT_MODELS.map(model => (
+                      <MenuItem key={model.id} value={model.id}>
+                        {model.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
-
-              <FormControl sx={{ width: 200 }} size="small">
-                <InputLabel size="small">OLT Model</InputLabel>
-                <Select
-                  value={selectedOLT}
-                  onChange={(e) => setSelectedOLT(e.target.value)}
-                  label="OLT Model"
-                  sx={{ 
-                    height: '32px',
-                    '& .MuiOutlinedInput-input': {
-                      padding: '4px 14px',
-                    }
-                  }}
-                >
-                  {OLT_MODELS.map(model => (
-                    <MenuItem key={model.id} value={model.id}>
-                      {model.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
             </Grid>
           </Grid>
         </Paper>
@@ -192,7 +200,7 @@ const ConfigurationGenerator = () => {
         }}>
           <Box sx={{ p: 1 }}>
             <TableContainer>
-              <Table>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell>Site Name</TableCell>
@@ -218,6 +226,10 @@ const ConfigurationGenerator = () => {
                           onClick={() => handleGenerateConfig(assignment)}
                           disabled={!selectedOLT || loading}
                           size="small"
+                          sx={{ 
+                            height: '32px',
+                            minHeight: '32px'
+                          }}
                         >
                           Generate Config
                         </Button>

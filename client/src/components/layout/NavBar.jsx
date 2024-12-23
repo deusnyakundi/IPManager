@@ -47,21 +47,14 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
     flexGrow: 1,
     padding: 0,
     paddingTop: '48px',
-    transition: theme.transitions.create(['margin', 'width'], {
+    transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: collapsed ? COLLAPSED_WIDTH : `-${DRAWER_WIDTH}px`,
-    width: '100%',
+    marginLeft: 0,
+    width: `calc(100% - ${collapsed ? COLLAPSED_WIDTH : open ? DRAWER_WIDTH : 0}px)`,
     minWidth: 0,
     overflow: 'auto',
-    ...(open && {
-      transition: theme.transitions.create(['margin', 'width'], {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
-      marginLeft: DRAWER_WIDTH,
-    }),
   }),
 );
 
@@ -76,18 +69,8 @@ const StyledAppBar = styled(AppBar, { shouldForwardProp: (prop) => prop !== 'ope
       paddingLeft: theme.spacing(1),
       paddingRight: theme.spacing(1),
     },
-    ...(open && {
-      width: `calc(100% - ${DRAWER_WIDTH}px)`,
-      marginLeft: DRAWER_WIDTH,
-      transition: theme.transitions.create(['margin', 'width'], {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
-    }),
-    ...(collapsed && {
-      width: `calc(100% - ${COLLAPSED_WIDTH}px)`,
-      marginLeft: COLLAPSED_WIDTH,
-    }),
+    width: `calc(100% - ${collapsed ? COLLAPSED_WIDTH : open ? DRAWER_WIDTH : 0}px)`,
+    marginLeft: collapsed ? COLLAPSED_WIDTH : open ? DRAWER_WIDTH : 0,
   }),
 );
 
