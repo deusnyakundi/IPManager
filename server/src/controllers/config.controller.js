@@ -7,9 +7,22 @@ const configController = {
   getAssignments: async (req, res) => {
     try {
       console.log('Getting assignments...');
-      const result = await pool.query(
-        'SELECT * FROM ip_assignments ORDER BY created_at DESC'
-      );
+      const { search } = req.query;
+      
+      let query = `
+        SELECT * FROM ip_assignments 
+        WHERE 1=1
+      `;
+      
+      const params = [];
+      if (search) {
+        query += ` AND site_name ILIKE $1`;
+        params.push(`%${search}%`);
+      }
+      
+      query += ` ORDER BY created_at DESC`;
+      
+      const result = await pool.query(query, params);
       console.log('Found assignments:', result.rows);
       res.json(result.rows);
     } catch (error) {

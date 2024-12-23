@@ -15,10 +15,12 @@ import {
   FormControl,
   InputLabel,
   Container,
-  Grid
+  Grid,
+  TextField
 } from '@mui/material';
 import { Download as DownloadIcon } from '@mui/icons-material';
 import api from '../../utils/api';
+import SearchIcon from '@mui/icons-material/Search';
 
 const OLT_MODELS = [
   { id: 'MA5800X7', name: 'MA5800-X7' },
@@ -29,19 +31,30 @@ const ConfigurationGenerator = () => {
   const [assignments, setAssignments] = useState([]);
   const [selectedOLT, setSelectedOLT] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchAssignments();
   }, []);
 
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchAssignments();
+    }, 150);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
   const fetchAssignments = async () => {
     try {
       console.log('Fetching assignments...');
-      const response = await api.get('/config/assignments');
+      const response = await api.get('/config/assignments', {
+        params: {
+          search: searchTerm
+        }
+      });
       console.log('Assignments response:', response.data);
       setAssignments(response.data);
     } catch (error) {
-      console.error('Full error:', error);
       console.error('Error fetching assignments:', error);
     }
   };
@@ -121,7 +134,34 @@ const ConfigurationGenerator = () => {
                 Configuration Generator
               </Typography>
             </Grid>
-            <Grid item>
+            <Grid item sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  gap: 0.5,
+                  alignItems: 'center',
+                  height: '32px',
+                }}
+              >
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  placeholder="Search sites..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
+                    sx: { 
+                      height: '32px',
+                      fontSize: '0.875rem',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(0, 0, 0, 0.12)',
+                      },
+                    }
+                  }}
+                />
+              </Box>
+
               <FormControl sx={{ width: 200 }} size="small">
                 <InputLabel size="small">OLT Model</InputLabel>
                 <Select
