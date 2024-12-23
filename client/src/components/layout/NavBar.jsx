@@ -99,7 +99,7 @@ const NavBar = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications] = useState([]); // For notification badge
 
