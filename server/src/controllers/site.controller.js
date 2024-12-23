@@ -4,26 +4,54 @@ const siteController = {
   // Get all sites
   getAllSites: async (req, res) => {
     try {
-      const result = await pool.query(
-        `SELECT 
+      const { search, region_ids, status } = req.query;
+      
+      let query = `
+        SELECT 
           s.id,
           s.name,
-          s.ip,
+          s.ip as "ipAddress",
           s.region_id as "regionId",
-          r.name as "region.name"
+          r.name as "regionName"
         FROM sites s 
-        LEFT JOIN regions r ON s.region_id = r.id`
-      );
+        LEFT JOIN regions r ON s.region_id = r.id
+        WHERE 1=1
+      `;
       
-      // Transform the results to match the frontend structure
+      const params = [];
+      let paramIndex = 1;
+      
+      if (search) {
+        query += ` AND (s.name ILIKE $${paramIndex} OR s.ip ILIKE $${paramIndex})`;
+        params.push(`%${search}%`);
+        paramIndex++;
+      }
+      
+      if (region_ids) {
+        const regionIdArray = region_ids.split(',').map(Number);
+        query += ` AND s.region_id = ANY($${paramIndex}::int[])`;
+        params.push(regionIdArray);
+        paramIndex++;
+      }
+      
+      if (status === 'active') {
+        query += ` AND s.ip IS NOT NULL`;
+      } else if (status === 'pending') {
+        query += ` AND s.ip IS NULL`;
+      }
+      
+      query += ` ORDER BY s.name`;
+      
+      const result = await pool.query(query, params);
+      
       const sites = result.rows.map(site => ({
         id: site.id,
         name: site.name,
-        ipAddress: site.ip,
+        ipAddress: site.ipAddress,
         regionId: site.regionId,
-        region: site['region.name'] ? {
+        region: site.regionName ? {
           id: site.regionId,
-          name: site['region.name']
+          name: site.regionName
         } : null
       }));
       

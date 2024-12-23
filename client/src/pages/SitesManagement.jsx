@@ -29,14 +29,18 @@ const SitesManagement = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    region: []
+    region: [],
+    status: 'all'
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showSiteForm, setShowSiteForm] = useState(false);
   const [selectedSite, setSelectedSite] = useState(null);
 
   useEffect(() => {
-    fetchSites();
+    const timeoutId = setTimeout(() => {
+      fetchSites();
+    }, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchTerm, filters]);
 
   const fetchSites = async () => {
@@ -168,8 +172,13 @@ const SitesManagement = () => {
           setShowSiteForm(false);
           setSelectedSite(null);
         }}
-        maxWidth="md"
-        fullWidth
+        PaperProps={{
+          sx: {
+            width: 'auto',
+            m: 0,
+            borderRadius: 1,
+          }
+        }}
       >
         <SiteForm
           site={selectedSite}
@@ -184,8 +193,13 @@ const SitesManagement = () => {
       <Dialog
         open={showFilters}
         onClose={() => setShowFilters(false)}
-        maxWidth="sm"
-        fullWidth
+        PaperProps={{
+          sx: {
+            width: 'auto',
+            m: 0,
+            borderRadius: 1,
+          }
+        }}
       >
         <SiteFilters
           filters={filters}

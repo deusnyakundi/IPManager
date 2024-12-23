@@ -90,7 +90,23 @@ export const siteAPI = {
   getSites: () => api.get('/sites'),
   deleteSite: (id) => api.delete(`/sites/${id}`),
   generateIP: (siteId) => api.post('/sites/generate-ip', { siteId }),
-  getAllSites: (params) => api.get('/sites', { params }),
+  getAllSites: (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.search) {
+      queryParams.append('search', params.search);
+    }
+    
+    if (params.region_ids?.length) {
+      queryParams.append('region_ids', params.region_ids.join(','));
+    }
+    
+    if (params.status && params.status !== 'all') {
+      queryParams.append('status', params.status);
+    }
+    
+    return api.get(`/sites?${queryParams.toString()}`);
+  },
 };
 
 export default api;

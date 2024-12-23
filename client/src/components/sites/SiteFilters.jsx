@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   DialogTitle,
@@ -11,8 +11,28 @@ import {
   MenuItem,
   Chip,
 } from '@mui/material';
+import { regionAPI } from '../../utils/api';
 
 const SiteFilters = ({ filters, onChange, onClose }) => {
+  const [regions, setRegions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRegions();
+  }, []);
+
+  const fetchRegions = async () => {
+    setLoading(true);
+    try {
+      const response = await regionAPI.getRegions();
+      setRegions(response.data);
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (field, value) => {
     onChange({
       ...filters,
@@ -20,12 +40,20 @@ const SiteFilters = ({ filters, onChange, onClose }) => {
     });
   };
 
+  const handleClearFilters = () => {
+    onChange({
+      region: [],
+      status: 'all'
+    });
+    onClose();
+  };
+
   return (
     <Box>
       <DialogTitle>Filter Sites</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <FormControl fullWidth>
+      <DialogContent sx={{ width: '300px', pt: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <FormControl fullWidth size="small">
             <InputLabel>Region</InputLabel>
             <Select
               multiple
@@ -34,30 +62,49 @@ const SiteFilters = ({ filters, onChange, onClose }) => {
               label="Region"
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip key={value} label={value} />
-                  ))}
+                  {selected.map((value) => {
+                    const region = regions.find(r => r.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={region ? region.name : value}
+                        size="small"
+                      />
+                    );
+                  })}
                 </Box>
               )}
             >
-              {/* Add your region options here */}
-              <MenuItem value="region1">Region 1</MenuItem>
-              <MenuItem value="region2">Region 2</MenuItem>
+              {regions.map((region) => (
+                <MenuItem key={region.id} value={region.id}>
+                  {region.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filters.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              label="Status"
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
             </Select>
           </FormControl>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+      <DialogActions sx={{ p: 2, pt: 1 }}>
+        <Button onClick={onClose} size="small">
+          Close
+        </Button>
         <Button 
           variant="contained" 
-          onClick={() => {
-            onChange({
-              region: [],
-              status: [],
-              tags: []
-            });
-          }}
+          onClick={handleClearFilters}
+          size="small"
         >
           Clear Filters
         </Button>
