@@ -99,70 +99,116 @@ const SitesManagement = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Grid container justifyContent="space-between" alignItems="center" spacing={2}>
+    <Container 
+      maxWidth="lg"
+      sx={{ p: 0 }}
+    >
+      <Box sx={{ mb: 0.5 }}>
+        <Grid 
+          container 
+          justifyContent="space-between" 
+          alignItems="center" 
+          spacing={1}
+          sx={{ 
+            minHeight: '36px',
+            py: 0
+          }}
+        >
           <Grid item>
-            <Typography variant="h4">Sites Management</Typography>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontSize: '1.25rem',
+                lineHeight: 1,
+                m: 0,
+              }}
+            >
+              Sites Management
+            </Typography>
           </Grid>
-          <Grid item>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setShowSiteForm(true)}
-              >
-                Add Site
-              </Button>
-              <Button
+          <Grid item sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                gap: 0.5,
+                alignItems: 'center',
+                height: '32px',
+              }}
+            >
+              <TextField
+                size="small"
                 variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleExport}
+                placeholder="Search sites..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
+                  sx: { 
+                    height: '32px',
+                    fontSize: '0.875rem',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(0, 0, 0, 0.12)',
+                    },
+                  }
+                }}
+              />
+              <IconButton 
+                onClick={() => setShowFilters(true)}
+                size="small"
+                sx={{ 
+                  height: '32px',
+                  width: '32px',
+                  p: 0.5,
+                }}
               >
-                Export
-              </Button>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<UploadIcon />}
-              >
-                Import
-                <input
-                  type="file"
-                  hidden
-                  accept=".csv"
-                  onChange={handleImport}
-                />
-              </Button>
+                <FilterIcon fontSize="small" />
+              </IconButton>
             </Box>
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setShowSiteForm(true)}
+              size="small"
+            >
+              Add Site
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleExport}
+              size="small"
+            >
+              Export
+            </Button>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<UploadIcon />}
+              size="small"
+            >
+              Import
+              <input
+                type="file"
+                hidden
+                accept=".csv"
+                onChange={handleImport}
+              />
+            </Button>
           </Grid>
         </Grid>
 
-        <Paper sx={{ mt: 2, p: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search sites..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+        <Paper sx={{ mt: 1 }}>
+          <Box sx={{ p: 1 }}>
+            <SitesList
+              sites={sites}
+              loading={loading}
+              onEdit={(site) => {
+                setSelectedSite(site);
+                setShowSiteForm(true);
               }}
             />
-            <IconButton onClick={() => setShowFilters(true)}>
-              <FilterIcon />
-            </IconButton>
           </Box>
-
-          <SitesList
-            sites={sites}
-            loading={loading}
-            onEdit={(site) => {
-              setSelectedSite(site);
-              setShowSiteForm(true);
-            }}
-          />
         </Paper>
       </Box>
 

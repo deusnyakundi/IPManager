@@ -43,7 +43,8 @@ const DRAWER_WIDTH = 240;
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
   ({ theme, open }) => ({
     flexGrow: 1,
-    padding: theme.spacing(3),
+    padding: 0,
+    paddingTop: '48px',
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
@@ -65,6 +66,11 @@ const StyledAppBar = styled(AppBar, { shouldForwardProp: (prop) => prop !== 'ope
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
+    '& .MuiToolbar-root': {
+      minHeight: '48px', // Reduced height
+      paddingLeft: theme.spacing(1),
+      paddingRight: theme.spacing(1),
+    },
     ...(open && {
       width: `calc(100% - ${DRAWER_WIDTH}px)`,
       marginLeft: `${DRAWER_WIDTH}px`,
@@ -80,7 +86,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   padding: theme.spacing(0, 1),
-  ...theme.mixins.toolbar,
+  minHeight: '48px',
   justifyContent: 'flex-end',
 }));
 
@@ -143,7 +149,17 @@ const NavBar = ({ children }) => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <StyledAppBar position="fixed" open={open}>
+      <StyledAppBar 
+        position="fixed" 
+        open={open}
+        sx={{ 
+          '& .MuiToolbar-root': {
+            minHeight: '48px', // Reduce AppBar height
+            paddingLeft: 1,
+            paddingRight: 1
+          }
+        }}
+      >
         <Toolbar>
           <IconButton
             color="inherit"
@@ -308,8 +324,6 @@ const NavBar = ({ children }) => {
         </List>
       </Drawer>
       <Main open={open}>
-        <DrawerHeader />
-        {console.log('Rendering children:', children)}
         {children}
       </Main>
     </Box>
