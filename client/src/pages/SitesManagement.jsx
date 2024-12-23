@@ -39,7 +39,7 @@ const SitesManagement = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchSites();
-    }, 300);
+    }, 150);
     return () => clearTimeout(timeoutId);
   }, [searchTerm, filters]);
 
@@ -100,105 +100,121 @@ const SitesManagement = () => {
 
   return (
     <Container 
-      maxWidth="lg"
-      sx={{ p: 0 }}
+      maxWidth="xl"
+      disableGutters
+      sx={{ height: '100%' }}
     >
       <Box sx={{ mb: 0.5 }}>
-        <Grid 
-          container 
-          justifyContent="space-between" 
-          alignItems="center" 
-          spacing={1}
+        <Paper 
+          elevation={0} 
           sx={{ 
-            minHeight: '36px',
-            py: 0
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
           }}
         >
-          <Grid item>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                fontSize: '1.25rem',
-                lineHeight: 1,
-                m: 0,
-              }}
-            >
-              Sites Management
-            </Typography>
-          </Grid>
-          <Grid item sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                gap: 0.5,
-                alignItems: 'center',
-                height: '32px',
-              }}
-            >
-              <TextField
-                size="small"
-                variant="outlined"
-                placeholder="Search sites..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
-                  sx: { 
-                    height: '32px',
-                    fontSize: '0.875rem',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(0, 0, 0, 0.12)',
-                    },
-                  }
-                }}
-              />
-              <IconButton 
-                onClick={() => setShowFilters(true)}
-                size="small"
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={1}
+            sx={{ 
+              minHeight: '36px',
+              py: 0
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
                 sx={{ 
-                  height: '32px',
-                  width: '32px',
-                  p: 0.5,
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
                 }}
               >
-                <FilterIcon fontSize="small" />
-              </IconButton>
-            </Box>
+                Sites Management
+              </Typography>
+            </Grid>
+            <Grid item sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  gap: 0.5,
+                  alignItems: 'center',
+                  height: '32px',
+                }}
+              >
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  placeholder="Search sites..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
+                    sx: { 
+                      height: '32px',
+                      fontSize: '0.875rem',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(0, 0, 0, 0.12)',
+                      },
+                    }
+                  }}
+                />
+                <IconButton 
+                  onClick={() => setShowFilters(true)}
+                  size="small"
+                  sx={{ 
+                    height: '32px',
+                    width: '32px',
+                    p: 0.5,
+                  }}
+                >
+                  <FilterIcon fontSize="small" />
+                </IconButton>
+              </Box>
 
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setShowSiteForm(true)}
-              size="small"
-            >
-              Add Site
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExport}
-              size="small"
-            >
-              Export
-            </Button>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<UploadIcon />}
-              size="small"
-            >
-              Import
-              <input
-                type="file"
-                hidden
-                accept=".csv"
-                onChange={handleImport}
-              />
-            </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setShowSiteForm(true)}
+                size="small"
+              >
+                Add Site
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExport}
+                size="small"
+              >
+                Export
+              </Button>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadIcon />}
+                size="small"
+              >
+                Import
+                <input
+                  type="file"
+                  hidden
+                  accept=".csv"
+                  onChange={handleImport}
+                />
+              </Button>
+            </Grid>
           </Grid>
-        </Grid>
+        </Paper>
 
-        <Paper sx={{ mt: 1 }}>
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+        }}>
           <Box sx={{ p: 1 }}>
             <SitesList
               sites={sites}
