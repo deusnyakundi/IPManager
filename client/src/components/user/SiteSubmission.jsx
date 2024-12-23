@@ -7,10 +7,12 @@ import {
   Container,
   Paper,
   Grid,
+  TextField,
 } from '@mui/material';
 import { siteAPI } from '../../services/siteAPI';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import api from '../../utils/api';
+import SearchIcon from '@mui/icons-material/Search';
 
 const SiteSubmission = () => {
   const [sites, setSites] = useState([]);
@@ -149,10 +151,43 @@ const SiteSubmission = () => {
                     onChange={setSelectedSite}
                     loading={loading}
                     required
+                    placeholder="Search for a site..."
+                    loadingText="Loading sites..."
+                    noOptionsText="No sites found"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Start typing site name..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <SearchIcon 
+                                sx={{ 
+                                  color: 'text.secondary',
+                                  ml: 0.5,
+                                  mr: 0.5,
+                                  fontSize: '1.2rem'
+                                }} 
+                              />
+                              {params.InputProps.startAdornment}
+                            </>
+                          )
+                        }}
+                      />
+                    )}
                     sx={{ 
                       '& .MuiInputBase-root': {
                         height: '32px',
-                        minHeight: '32px'
+                        minHeight: '32px',
+                        backgroundColor: 'background.paper',
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'background.paper',
+                          boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
+                        }
                       },
                       '& .MuiOutlinedInput-input': {
                         padding: '2px 14px',
@@ -168,6 +203,12 @@ const SiteSubmission = () => {
                       },
                       '& .MuiInputLabel-shrink': {
                         transform: 'translate(14px, -6px) scale(0.75)',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'divider',
+                      },
+                      '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'action.active',
                       }
                     }}
                   />
