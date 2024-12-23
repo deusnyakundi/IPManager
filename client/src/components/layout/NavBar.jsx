@@ -18,7 +18,8 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Divider
+  Divider,
+  Tooltip
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -39,48 +40,53 @@ import {
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
+const COLLAPSED_WIDTH = 65;
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
-  ({ theme, open }) => ({
+  ({ theme, open, collapsed }) => ({
     flexGrow: 1,
     padding: 0,
     paddingTop: '48px',
-    transition: theme.transitions.create('margin', {
+    transition: theme.transitions.create(['margin', 'width'], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: `-${DRAWER_WIDTH}px`,
+    marginLeft: collapsed ? COLLAPSED_WIDTH : `-${DRAWER_WIDTH}px`,
     width: '100%',
     minWidth: 0,
     overflow: 'auto',
     ...(open && {
-      transition: theme.transitions.create('margin', {
+      transition: theme.transitions.create(['margin', 'width'], {
         easing: theme.transitions.easing.easeOut,
         duration: theme.transitions.duration.enteringScreen,
       }),
-      marginLeft: 0,
+      marginLeft: DRAWER_WIDTH,
     }),
   }),
 );
 
 const StyledAppBar = styled(AppBar, { shouldForwardProp: (prop) => prop !== 'open' })(
-  ({ theme, open }) => ({
+  ({ theme, open, collapsed }) => ({
     transition: theme.transitions.create(['margin', 'width'], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
     '& .MuiToolbar-root': {
-      minHeight: '48px', // Reduced height
+      minHeight: '48px',
       paddingLeft: theme.spacing(1),
       paddingRight: theme.spacing(1),
     },
     ...(open && {
       width: `calc(100% - ${DRAWER_WIDTH}px)`,
-      marginLeft: `${DRAWER_WIDTH}px`,
+      marginLeft: DRAWER_WIDTH,
       transition: theme.transitions.create(['margin', 'width'], {
         easing: theme.transitions.easing.easeOut,
         duration: theme.transitions.duration.enteringScreen,
       }),
+    }),
+    ...(collapsed && {
+      width: `calc(100% - ${COLLAPSED_WIDTH}px)`,
+      marginLeft: COLLAPSED_WIDTH,
     }),
   }),
 );
@@ -109,6 +115,7 @@ const NavBar = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications] = useState([]); // For notification badge
 
@@ -129,7 +136,13 @@ const NavBar = ({ children }) => {
   }
 
   const handleDrawerToggle = () => {
-    setOpen(!open);
+    if (open) {
+      setCollapsed(true);
+      setOpen(false);
+    } else {
+      setCollapsed(false);
+      setOpen(true);
+    }
   };
 
   const handleProfileMenu = (event) => {
@@ -150,11 +163,18 @@ const NavBar = ({ children }) => {
     }
   };
 
+  const handleMenuItemClick = (path) => {
+    navigate(path);
+    setOpen(false);
+    setCollapsed(true);
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <StyledAppBar 
         position="fixed" 
         open={open}
+        collapsed={collapsed}
         sx={{ 
           '& .MuiToolbar-root': {
             minHeight: '48px', // Reduce AppBar height
@@ -164,15 +184,6 @@ const NavBar = ({ children }) => {
         }}
       >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            onClick={handleDrawerToggle}
-            edge="start"
-            sx={{ mr: 2, ...(open && { display: 'none' }) }}
-          >
-            <MenuIcon />
-          </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             IP Manager
           </Typography>
@@ -272,21 +283,25 @@ const NavBar = ({ children }) => {
       </StyledAppBar>
 
       <Drawer
+        variant="permanent"
         sx={{
-          width: DRAWER_WIDTH,
+          width: open ? DRAWER_WIDTH : COLLAPSED_WIDTH,
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: open ? DRAWER_WIDTH : COLLAPSED_WIDTH,
             boxSizing: 'border-box',
+            overflowX: 'hidden',
+            transition: theme => theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
           },
         }}
-        variant="persistent"
-        anchor="left"
-        open={open}
+        open={true}
       >
         <DrawerHeader>
           <IconButton onClick={handleDrawerToggle}>
-            <ChevronLeftIcon />
+            {open ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
         </DrawerHeader>
         <List>
@@ -297,8 +312,9 @@ const NavBar = ({ children }) => {
                 button
                 key={item.path}
                 selected={location.pathname === item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleMenuItemClick(item.path)}
                 sx={{
+                  px: collapsed ? 2 : 3,
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
                     color: 'common.white',
@@ -312,21 +328,28 @@ const NavBar = ({ children }) => {
                   my: 0.5,
                   mx: 1,
                   borderRadius: 1,
+                  minHeight: 48,
+                  justifyContent: collapsed ? 'center' : 'initial',
                 }}
               >
-                <ListItemIcon 
-                  sx={{ 
-                    color: location.pathname === item.path ? 'common.white' : 'inherit'
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.label} />
+                <Tooltip title={collapsed ? item.label : ""} placement="right">
+                  <ListItemIcon 
+                    sx={{ 
+                      color: location.pathname === item.path ? 'common.white' : 'inherit',
+                      minWidth: collapsed ? 'auto' : 48,
+                      mr: collapsed ? 0 : 2,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                </Tooltip>
+                {!collapsed && <ListItemText primary={item.label} />}
               </ListItem>
             ))}
         </List>
       </Drawer>
-      <Main open={open}>
+      <Main open={open} collapsed={collapsed}>
         {children}
       </Main>
     </Box>
