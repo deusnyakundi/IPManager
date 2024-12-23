@@ -4,6 +4,9 @@ import {
   Typography,
   Button,
   Alert,
+  Container,
+  Paper,
+  Grid,
 } from '@mui/material';
 import { siteAPI } from '../../services/siteAPI';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
@@ -64,39 +67,158 @@ const SiteSubmission = () => {
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        Generate IP Address
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      
-      <SearchableSiteSelect
-        sites={sites}
-        value={selectedSite}
-        onChange={setSelectedSite}
-        loading={loading}
-        required
-      />
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
+        >
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={1}
+            sx={{ 
+              minHeight: '36px',
+              py: 0
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
+                Generate IP Address
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
 
-      <Button 
-        variant="contained" 
-        onClick={handleSubmit}
-        disabled={!selectedSite || loading}
-        sx={{ mt: 2 }}
-      >
-        Generate IP
-      </Button>
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+        }}>
+          <Box sx={{ p: 2 }}>
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2,
+                  '& .MuiAlert-message': {
+                    color: 'error.main',
+                  }
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+            
+            <Box sx={{ maxWidth: '800px' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                alignItems: 'center'
+              }}>
+                <Box sx={{ 
+                  flex: 1,
+                  minWidth: '600px',
+                }}>
+                  <SearchableSiteSelect
+                    sites={sites}
+                    value={selectedSite}
+                    onChange={setSelectedSite}
+                    loading={loading}
+                    required
+                    sx={{ 
+                      '& .MuiInputBase-root': {
+                        height: '32px',
+                      },
+                      '& .MuiOutlinedInput-input': {
+                        padding: '4px 14px',
+                      },
+                      '& .MuiAutocomplete-input': {
+                        padding: '0 !important',
+                      }
+                    }}
+                  />
+                </Box>
+                <Button 
+                  variant="contained" 
+                  onClick={handleSubmit}
+                  disabled={!selectedSite || loading}
+                  size="small"
+                  sx={{ 
+                    height: '32px',
+                    minHeight: '32px',
+                  }}
+                >
+                  Generate IP
+                </Button>
+              </Box>
 
-      {generatedIP && (
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Generated IP: {generatedIP} <br />
-          VLAN: {vlan} <br />
-          Primary VCID: {primaryVCID} <br />
-          Secondary VCID: {secondaryVCID} <br />
-          VSI ID: {vsiId}
-        </Typography>
-      )}
-    </Box>
+              {generatedIP && (
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    mt: 3,
+                    p: 2,
+                    backgroundColor: 'background.paper',
+                    maxWidth: '400px',
+                  }}
+                >
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Generated Values
+                  </Typography>
+                  <Box sx={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'auto 1fr',
+                    gap: 2,
+                    '& > *': { py: 0.5 }
+                  }}>
+                    <Typography color="text.secondary">IP Address:</Typography>
+                    <Typography>{generatedIP}</Typography>
+                    
+                    <Typography color="text.secondary">VLAN:</Typography>
+                    <Typography>{vlan}</Typography>
+                    
+                    <Typography color="text.secondary">Primary VCID:</Typography>
+                    <Typography>{primaryVCID}</Typography>
+                    
+                    <Typography color="text.secondary">Secondary VCID:</Typography>
+                    <Typography>{secondaryVCID}</Typography>
+                    
+                    <Typography color="text.secondary">VSI ID:</Typography>
+                    <Typography>{vsiId}</Typography>
+                  </Box>
+                </Paper>
+              )}
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 
