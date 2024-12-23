@@ -72,14 +72,15 @@ const SearchableSiteSelect = ({
         {isOpen && (
           <Paper
             sx={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              mt: 0.5,
+              position: 'fixed',
+              top: '200px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '80%',
+              maxWidth: '800px',
               height: 'calc(100vh - 250px)',
               overflow: 'auto',
-              zIndex: 1000,
+              zIndex: 1500,
               boxShadow: 3,
               '& .MuiBox-root': {
                 py: 1,
