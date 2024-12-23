@@ -13,7 +13,9 @@ import {
   MenuItem,
   Button,
   FormControl,
-  InputLabel
+  InputLabel,
+  Container,
+  Grid
 } from '@mui/material';
 import { Download as DownloadIcon } from '@mui/icons-material';
 import api from '../../utils/api';
@@ -73,62 +75,122 @@ const ConfigurationGenerator = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Configuration Generator
-      </Typography>
-
-      <FormControl sx={{ mb: 3, minWidth: 200 }}>
-        <InputLabel>OLT Model</InputLabel>
-        <Select
-          value={selectedOLT}
-          onChange={(e) => setSelectedOLT(e.target.value)}
-          label="OLT Model"
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
         >
-          {OLT_MODELS.map(model => (
-            <MenuItem key={model.id} value={model.id}>
-              {model.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={1}
+            sx={{ 
+              minHeight: '36px',
+              py: 0
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
+                Configuration Generator
+              </Typography>
+            </Grid>
+            <Grid item>
+              <FormControl sx={{ width: 200 }} size="small">
+                <InputLabel size="small">OLT Model</InputLabel>
+                <Select
+                  value={selectedOLT}
+                  onChange={(e) => setSelectedOLT(e.target.value)}
+                  label="OLT Model"
+                  sx={{ 
+                    height: '32px',
+                    '& .MuiOutlinedInput-input': {
+                      padding: '4px 14px',
+                    }
+                  }}
+                >
+                  {OLT_MODELS.map(model => (
+                    <MenuItem key={model.id} value={model.id}>
+                      {model.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Site Name</TableCell>
-              <TableCell>IP Address</TableCell>
-              <TableCell>VLAN</TableCell>
-              <TableCell>Primary VCID</TableCell>
-              <TableCell>Secondary VCID</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {assignments.map((assignment) => (
-              <TableRow key={assignment.id}>
-                <TableCell>{assignment.site_name}</TableCell>
-                <TableCell>{assignment.assigned_ip}</TableCell>
-                <TableCell>{assignment.management_vlan}</TableCell>
-                <TableCell>{assignment.primary_vcid}</TableCell>
-                <TableCell>{assignment.secondary_vcid}</TableCell>
-                <TableCell>
-                  <Button
-                    variant="contained"
-                    startIcon={<DownloadIcon />}
-                    onClick={() => handleGenerateConfig(assignment)}
-                    disabled={!selectedOLT || loading}
-                  >
-                    Generate Config
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+        }}>
+          <Box sx={{ p: 1 }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Site Name</TableCell>
+                    <TableCell>IP Address</TableCell>
+                    <TableCell>VLAN</TableCell>
+                    <TableCell>Primary VCID</TableCell>
+                    <TableCell>Secondary VCID</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {assignments.map((assignment) => (
+                    <TableRow key={assignment.id}>
+                      <TableCell>{assignment.site_name}</TableCell>
+                      <TableCell>{assignment.assigned_ip}</TableCell>
+                      <TableCell>{assignment.management_vlan}</TableCell>
+                      <TableCell>{assignment.primary_vcid}</TableCell>
+                      <TableCell>{assignment.secondary_vcid}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="contained"
+                          startIcon={<DownloadIcon />}
+                          onClick={() => handleGenerateConfig(assignment)}
+                          disabled={!selectedOLT || loading}
+                          size="small"
+                        >
+                          Generate Config
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 

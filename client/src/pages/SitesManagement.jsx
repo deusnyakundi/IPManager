@@ -102,9 +102,16 @@ const SitesManagement = () => {
     <Container 
       maxWidth="xl"
       disableGutters
-      sx={{ height: '100%' }}
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+      }}
     >
-      <Box sx={{ mb: 0.5 }}>
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
         <Paper 
           elevation={0} 
           sx={{ 

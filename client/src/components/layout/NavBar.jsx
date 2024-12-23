@@ -51,6 +51,8 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
     }),
     marginLeft: `-${DRAWER_WIDTH}px`,
     width: '100%',
+    minWidth: 0,
+    overflow: 'auto',
     ...(open && {
       transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.easeOut,
