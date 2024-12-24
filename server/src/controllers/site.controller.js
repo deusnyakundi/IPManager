@@ -66,16 +66,25 @@ const siteController = {
   // Create a new site
   createSite: async (req, res) => {
     const { name, ip, region_id } = req.body;
+    
+    // Sanitize the site name - remove special characters and normalize
+    const sanitizedName = name
+      .normalize('NFKD')
+      .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
+      .replace(/\s+/g, '_')         // Replace spaces with underscores
+      .trim();                      // Remove leading/trailing spaces
+
     logger.info('Site creation attempt', {
-      siteName: name,
+      originalName: name,
       ip: ip,
       regionId: region_id,
+      requestBody: req.body,
       timestamp: new Date()
     });
 
     try {
       // For site codes (matches pattern like 12087_NE_NM3236), get the base code
-      const siteCodeMatch = name.match(/^\d+_[A-Z]+_[A-Z]+\d+/);
+      const siteCodeMatch = sanitizedName.match(/^\d+_[A-Z]+_[A-Z]+\d+/);
       
       let existingSite;
       if (siteCodeMatch) {
@@ -88,7 +97,7 @@ const siteController = {
 
         if (existingSite.rows.length > 0) {
           logger.warn('Duplicate site creation attempted', {
-            attemptedName: name,
+            attemptedName: sanitizedName,
             existingSite: existingSite.rows[0].name,
             siteCode: siteCode,
             timestamp: new Date()
@@ -101,28 +110,28 @@ const siteController = {
         // For non-site-code names, check exact match
         existingSite = await pool.query(
           `SELECT name FROM sites WHERE name = $1`,
-          [name]
+          [sanitizedName]
         );
 
         if (existingSite.rows.length > 0) {
           logger.warn('Duplicate site creation attempted', {
-            attemptedName: name,
+            attemptedName: sanitizedName,
             existingSite: existingSite.rows[0].name,
             timestamp: new Date()
           });
           return res.status(400).json({ 
-            message: `Site "${name}" already exists`
+            message: `Site "${sanitizedName}" already exists`
           });
         }
       }
 
       const result = await pool.query(
         'INSERT INTO sites (name, ip, region_id) VALUES ($1, $2, $3) RETURNING *',
-        [name, ip, region_id]
+        [sanitizedName, ip, region_id]
       );
 
       logger.info('Site created successfully', {
-        siteName: name,
+        siteName: sanitizedName,
         siteId: result.rows[0].id,
         timestamp: new Date()
       });
@@ -132,11 +141,18 @@ const siteController = {
       logger.error('Error creating site', {
         error: error.message,
         stack: error.stack,
-        siteName: name,
+        siteName: sanitizedName,
         timestamp: new Date()
       });
+      
+      // Improve error message for the user
+      let userMessage = 'Error creating site';
+      if (error.message.includes('violates not-null constraint')) {
+        userMessage = 'IP address is required for this operation';
+      }
+      
       res.status(500).json({ 
-        message: 'Error creating site',
+        message: userMessage,
         error: error.message 
       });
     }

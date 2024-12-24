@@ -79,7 +79,7 @@ CREATE TABLE ip_ranges (
 CREATE TABLE sites (
     id integer NOT NULL DEFAULT nextval('sites_id_seq'::regclass),
     name character varying(255) NOT NULL,
-    ip character varying(15) NOT NULL,
+    ip character varying(15),
     region_id integer,
     vlan integer,
     CONSTRAINT sites_pkey PRIMARY KEY (id),
@@ -140,3 +140,6 @@ VALUES (
     '$2a$10$Aq6GLKWffkal6x0/HjlUTeND6ag9Lv2O0iMnLWwsXu5UIi2BD/fmm',
     'admin'
 ) ON CONFLICT (username) DO NOTHING;
+
+-- Alter the sites table to allow NULL values for ip
+ALTER TABLE sites ALTER COLUMN ip DROP NOT NULL;

@@ -109,19 +109,24 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
       return;
     }
 
+    const submitData = {
+      name: formData.name,
+      ip: formData.ipAddress,
+      region_id: formData.region_id
+    };
+
     setLoading(true);
     try {
       if (site) {
         await onSubmit(formData);
       } else {
-        const response = await api.post('/sites', formData);
+        const response = await api.post('/sites', submitData);
         await onSubmit(response.data);
       }
     } catch (error) {
-      // Display the error message from the backend
       const errorMessage = error.response?.data?.message || 'Failed to create site';
       setSubmitError(errorMessage);
-      return; // Don't close the form if there's an error
+      return;
     } finally {
       setLoading(false);
     }
