@@ -47,6 +47,10 @@ const configController = {
         return res.status(404).json({ message: 'Assignment not found' });
       }
 
+      // Determine if this is OLT or OLT02 by checking the site name
+      const siteName = assignment.rows[0].site_name;
+      const mgmtVlan = siteName.endsWith('OLT02') ? '1001' : '1000';
+
       // Calculate next hop IP (increment last octet by 1)
       const currentIP = assignment.rows[0].assigned_ip;
       const ipParts = currentIP.split('.');
@@ -60,6 +64,7 @@ const configController = {
       template = template.replace(/\${SITE_NAME}/g, assignment.rows[0].site_name)
                         .replace(/\${IP_ADDRESS}/g, assignment.rows[0].assigned_ip)
                         .replace(/\${VLAN}/g, assignment.rows[0].management_vlan)
+                        .replace(/\${MGNTVLAN}/g, mgmtVlan)
                         .replace(/\${NEXTHOP}/g, nextHopIP)
                         .replace(/\${PRIMARY_VCID}/g, assignment.rows[0].primary_vcid)
                         .replace(/\${SECONDARY_VCID}/g, assignment.rows[0].secondary_vcid);
