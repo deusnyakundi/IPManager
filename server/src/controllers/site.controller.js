@@ -207,9 +207,15 @@ const siteController = {
 
       let oltSiteName;
       if (existingOLTs.rows.length > 0) {
-        const count = existingOLTs.rows.length + 1;
-        oltSiteName = `${site.name}-OLT${count.toString().padStart(2, '0')}`;
+        if (existingOLTs.rows.length === 2) {
+          return res.status(400).json({ 
+            message: 'Maximum number of devices (2) already assigned to this site. Consider an upgrade.' 
+          });
+        }
+        // If we have one device, add the second one with OLT02
+        oltSiteName = `${site.name}-OLT02`;
       } else {
+        // First device
         oltSiteName = `${site.name}-OLT`;
       }
 
