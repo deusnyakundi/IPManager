@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const logger = require('../services/logger.service');
 
 const siteController = {
   // Get all sites
@@ -65,30 +66,75 @@ const siteController = {
   // Create a new site
   createSite: async (req, res) => {
     const { name, ip, region_id } = req.body;
-    console.log('Received create site request:', { name, ip, region_id });
-    try {
-      // Check for existing sites with the same name
-      const existingSites = await pool.query(
-        `SELECT name FROM sites WHERE name LIKE $1 || '%'`,
-        [name]
-      );
+    logger.info('Site creation attempt', {
+      siteName: name,
+      ip: ip,
+      regionId: region_id,
+      timestamp: new Date()
+    });
 
-      let finalName = name;
-      if (existingSites.rows.length > 0) {
-        // Count existing sites with similar names
-        const count = existingSites.rows.length + 1;
-        finalName = `${name}-${count.toString().padStart(2, '0')}`;
+    try {
+      // For site codes (matches pattern like 12087_NE_NM3236), get the base code
+      const siteCodeMatch = name.match(/^\d+_[A-Z]+_[A-Z]+\d+/);
+      
+      let existingSite;
+      if (siteCodeMatch) {
+        // If it's a site code, check if the base code exists
+        const siteCode = siteCodeMatch[0];
+        existingSite = await pool.query(
+          `SELECT name FROM sites WHERE name LIKE $1 || '%'`,
+          [siteCode]
+        );
+
+        if (existingSite.rows.length > 0) {
+          logger.warn('Duplicate site creation attempted', {
+            attemptedName: name,
+            existingSite: existingSite.rows[0].name,
+            siteCode: siteCode,
+            timestamp: new Date()
+          });
+          return res.status(400).json({ 
+            message: `Site with code ${siteCode} already exists`
+          });
+        }
+      } else {
+        // For non-site-code names, check exact match
+        existingSite = await pool.query(
+          `SELECT name FROM sites WHERE name = $1`,
+          [name]
+        );
+
+        if (existingSite.rows.length > 0) {
+          logger.warn('Duplicate site creation attempted', {
+            attemptedName: name,
+            existingSite: existingSite.rows[0].name,
+            timestamp: new Date()
+          });
+          return res.status(400).json({ 
+            message: `Site "${name}" already exists`
+          });
+        }
       }
 
       const result = await pool.query(
         'INSERT INTO sites (name, ip, region_id) VALUES ($1, $2, $3) RETURNING *',
-        [finalName, ip, region_id]
+        [name, ip, region_id]
       );
 
-      console.log('Created site:', result.rows[0]);
+      logger.info('Site created successfully', {
+        siteName: name,
+        siteId: result.rows[0].id,
+        timestamp: new Date()
+      });
+
       res.status(201).json(result.rows[0]);
     } catch (error) {
-      console.error('Error creating site:', error);
+      logger.error('Error creating site', {
+        error: error.message,
+        stack: error.stack,
+        siteName: name,
+        timestamp: new Date()
+      });
       res.status(500).json({ 
         message: 'Error creating site',
         error: error.message 

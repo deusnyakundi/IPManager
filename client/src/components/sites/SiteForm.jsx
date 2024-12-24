@@ -111,19 +111,22 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
 
     setLoading(true);
     try {
-      const submitData = {
-        name: formData.name,
-        ip: formData.ipAddress,
-        region_id: formData.region_id,
-      };
-      await onSubmit(submitData);
-      onClose();
+      if (site) {
+        await onSubmit(formData);
+      } else {
+        const response = await api.post('/sites', formData);
+        await onSubmit(response.data);
+      }
     } catch (error) {
-      console.error('Error in SiteForm submission:', error);
-      setSubmitError(error.response?.data?.message || 'Failed to save site. Please try again.');
+      // Display the error message from the backend
+      const errorMessage = error.response?.data?.message || 'Failed to create site';
+      setSubmitError(errorMessage);
+      return; // Don't close the form if there's an error
     } finally {
       setLoading(false);
     }
+
+    onClose();
   };
 
   return (
@@ -145,7 +148,16 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
 
       <StyledDialogContent>
         {submitError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 2,
+              width: '100%',
+              '& .MuiAlert-message': {
+                color: 'error.main',
+              }
+            }}
+          >
             {submitError}
           </Alert>
         )}
