@@ -68,6 +68,7 @@ export const regionAPI = {
 export const mspAPI = {
   getMSP: () => api.get('/msps'),
   createMSP: (name) => api.post('/msps', { name }),
+  updateMSP: (id, name) => api.put(`/msps/${id}`, { name }),
   deleteMSP: (id) => api.delete(`/msps/${id}`),
 };
 

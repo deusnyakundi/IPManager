@@ -5,15 +5,13 @@ import api from '../../utils/api';
 
 const ManageClusters = () => {
   const [clusters, setClusters] = useState([]);
-  const [regions, setRegions] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingCluster, setEditingCluster] = useState(null);
-  const [formData, setFormData] = useState({ name: '', region_id: '' });
+  const [formData, setFormData] = useState({ name: '' });
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchClusters();
-    fetchRegions();
   }, []);
 
   const fetchClusters = async () => {
@@ -25,14 +23,7 @@ const ManageClusters = () => {
     }
   };
 
-  const fetchRegions = async () => {
-    try {
-      const response = await api.get('/regions');
-      setRegions(response.data);
-    } catch (error) {
-      console.error('Error fetching regions:', error);
-    }
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,7 +52,7 @@ const ManageClusters = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditingCluster(null);
-    setFormData({ name: '', region_id: '' });
+    setFormData({ name: '' });
     setError('');
   };
 
@@ -69,7 +60,7 @@ const ManageClusters = () => {
     setEditingCluster(cluster);
     setFormData({ 
       name: cluster.name, 
-      region_id: cluster.region_id 
+      
     });
     setOpenDialog(true);
   };
@@ -142,7 +133,7 @@ const ManageClusters = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Cluster Name</TableCell>
-                  <TableCell>Region</TableCell>
+              
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -150,7 +141,7 @@ const ManageClusters = () => {
                 {clusters.map((cluster) => (
                   <TableRow key={cluster.id}>
                     <TableCell>{cluster.name}</TableCell>
-                    <TableCell>{cluster.region_name}</TableCell>
+                    
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => handleEdit(cluster)}>
                         <EditIcon fontSize="small" />
@@ -186,22 +177,7 @@ const ManageClusters = () => {
             size="small"
             sx={{ mb: 2 }}
           />
-          <TextField
-            select
-            label="Region"
-            value={formData.region_id}
-            onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
-            fullWidth
-            required
-            size="small"
-            sx={{ mb: 2 }}
-          >
-            {regions.map((region) => (
-              <option key={region.id} value={region.id}>
-                {region.name}
-              </option>
-            ))}
-          </TextField>
+
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button onClick={handleClose}>Cancel</Button>
             <Button type="submit" variant="contained">

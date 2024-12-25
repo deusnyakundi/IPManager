@@ -25,7 +25,7 @@ const ManageMSPs = () => {
     if (!formData) return;
     try {
       if (editingMsp) {
-        await mspAPI.createMSP(formData);
+        await mspAPI.updateMSP(editingMsp.id, formData); // Pass the ID and form data
       } else {
         await mspAPI.createMSP(formData);
       }
