@@ -65,6 +65,12 @@ export const regionAPI = {
   deleteRegion: (id) => api.delete(`/regions/${id}`),
 };
 
+export const mspAPI = {
+  getMSP: () => api.get('/msps'),
+  createMSP: (name) => api.post('/msps', { name }),
+  deleteMSP: (id) => api.delete(`/msps/${id}`),
+};
+
 export const userAPI = {
   getUsers: () => api.get('/users'),
   createUser: (user) => api.post('/users', user),

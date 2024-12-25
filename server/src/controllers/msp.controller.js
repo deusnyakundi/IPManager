@@ -1,9 +1,10 @@
-const pool = require('../config/database');
+const pool = require('../config/db');
 const logger = require('../services/logger.service');
 
 const mspController = {
   getAllMSPs: async (req, res) => {
     try {
+      console.log('Received GET request for /api/msps');
       const result = await pool.query('SELECT * FROM msps ORDER BY name');
       res.json(result.rows);
     } catch (error) {

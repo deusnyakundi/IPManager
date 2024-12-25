@@ -13,6 +13,7 @@ import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
 import ConfigurationGenerator from '../components/config/ConfigurationGenerator';
 import NetworkSettings from '../components/admin/NetworkSettings';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
+import ManageMSPs from '../components/admin/ManageMSPs';
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -27,7 +28,8 @@ const AppRoutes = () => {
       <Route path="/admin" element={user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" replace />} />
       <Route path="/vlan-ranges" element={user?.role === 'admin' ? <ManageVLANRanges/> : <Navigate to="/" replace />} />
       <Route path="/ip-blocks" element={user?.role === 'admin' ? <ManageIPBlocks/> : <Navigate to="/" replace />} />
-      <Route path="/regions" element={user?.role === 'admin' ? <ManageRegions/> : <Navigate to="/" replace />} />
+      <Route path="/regions" element={user?.role === 'admin' ? <ManageRegions/> : <Navigate to="/" replace />} /> 
+
       <Route path="/vcid-ranges" element={
         console.log('Rendering VCID route') ||
         user?.role === 'admin' ? <ManageVCIDRanges/> : <Navigate to="/" replace />
@@ -35,12 +37,7 @@ const AppRoutes = () => {
       <Route path="/config-generator" element={user?.role === 'admin' ? <ConfigurationGenerator/> : <Navigate to="/" replace />} />
       <Route path="/infra-manager" element={user?.role === 'admin' ? <InfrastructureManager/> : <Navigate to="/" replace />} />
       <Route path="/sites" element={user?.role === 'admin' ? <SitesManagement/> : <Navigate to="/" replace />} />
-      <Route path="/network-settings" element={
-        <useAuth allowedRoles={['admin']}>
-          <NetworkSettings />
-        </useAuth>
-      } />
-      <Route path="*" element={<Navigate to="/" replace />} />
+
       
     </Routes>
   );

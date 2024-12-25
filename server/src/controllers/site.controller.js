@@ -1,4 +1,5 @@
-const pool = require('../config/database');
+
+const pool = require('../config/db');
 const logger = require('../services/logger.service');
 
 const siteController = {
