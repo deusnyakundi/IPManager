@@ -47,7 +47,7 @@ const SearchableSiteSelect = ({
 
   return (
     <ClickAwayListener onClickAway={handleClickAway}>
-      <Box sx={{ position: 'relative', width: '100%' }}>
+      <Box sx={{ position: 'relative', width: '100%',  }}>
         <TextField
           ref={inputRef}
           fullWidth

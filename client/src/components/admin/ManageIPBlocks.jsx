@@ -102,6 +102,7 @@ const ManageIPBlocks = () => {
         height: '100%',
         minWidth: 0,
         overflow: 'auto',
+        backgroundColor: 'background.paper', 
       }}
     >
       <Box sx={{ 

@@ -73,9 +73,10 @@ const SiteSubmission = () => {
       maxWidth="xl"
       disableGutters
       sx={{ 
-        height: '100%',
+        height: '100vh',
         minWidth: 0,
         overflow: 'auto',
+        backgroundColor: 'background.paper',
       }}
     >
       <Box sx={{ 

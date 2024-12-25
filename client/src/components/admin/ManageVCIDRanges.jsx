@@ -106,12 +106,14 @@ const ManageVCIDRanges = () => {
       maxWidth="xl"
       disableGutters
       sx={{ 
-        height: '100%',
+        height: '100vh',  // Set full viewport height
+        backgroundColor: 'background.paper', 
         minWidth: 0,
         overflow: 'auto',
       }}
     >
       <Box sx={{ 
+        
         mb: 0.5,
         minWidth: 'min-content',
       }}>

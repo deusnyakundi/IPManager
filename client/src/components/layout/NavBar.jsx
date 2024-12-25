@@ -165,11 +165,12 @@ const NavBar = ({ children }) => {
             minHeight: '48px', // Reduce AppBar height
             paddingLeft: 1,
             paddingRight: 1
+
           }
         }}
       >
         <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6"  noWrap component="div" sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', }}>
             IP Manager
           </Typography>
 
