@@ -17,6 +17,8 @@ CREATE SEQUENCE users_id_seq;
 CREATE SEQUENCE vcid_ranges_id_seq;
 CREATE SEQUENCE vlan_ranges_id_seq;
 CREATE SEQUENCE vlans_id_seq;
+CREATE SEQUENCE msps_id_seq;
+CREATE SEQUENCE ipran_clusters_id_seq;
 
 -- Create regions table (created first as it's referenced by other tables)
 CREATE TABLE regions (
@@ -82,6 +84,8 @@ CREATE TABLE sites (
     ip character varying(15),
     region_id integer,
     vlan integer,
+    msp_id integer REFERENCES msps(id),
+    ipran_cluster_id integer REFERENCES ipran_clusters(id),
     CONSTRAINT sites_pkey PRIMARY KEY (id),
     CONSTRAINT sites_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
 );
@@ -121,6 +125,34 @@ CREATE TABLE vlans (
     CONSTRAINT vlans_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
 );
 
+-- Create MSP table
+CREATE TABLE msps (
+    id integer NOT NULL DEFAULT nextval('msps_id_seq'::regclass),
+    name character varying(100) NOT NULL,
+    CONSTRAINT msps_pkey PRIMARY KEY (id),
+    CONSTRAINT msps_name_key UNIQUE (name)
+);
+
+-- Create IPRAN Clusters table
+CREATE TABLE ipran_clusters (
+    id integer NOT NULL DEFAULT nextval('ipran_clusters_id_seq'::regclass),
+    name character varying(100) NOT NULL,
+    region_id integer NOT NULL,
+    CONSTRAINT ipran_clusters_pkey PRIMARY KEY (id),
+    CONSTRAINT ipran_clusters_name_region_key UNIQUE (name, region_id),
+    CONSTRAINT ipran_clusters_region_id_fkey FOREIGN KEY (region_id) 
+        REFERENCES regions(id) ON DELETE RESTRICT
+);
+
+-- Modify sites table to add the new relationships
+ALTER TABLE sites 
+    ADD COLUMN msp_id integer NOT NULL,
+    ADD COLUMN ipran_cluster_id integer NOT NULL,
+    ADD CONSTRAINT sites_msp_id_fkey 
+        FOREIGN KEY (msp_id) REFERENCES msps(id) ON DELETE RESTRICT,
+    ADD CONSTRAINT sites_ipran_cluster_id_fkey 
+        FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id) ON DELETE RESTRICT;
+
 -- Grant sequence ownership
 ALTER SEQUENCE ip_assignments_id_seq OWNED BY ip_assignments.id;
 ALTER SEQUENCE ip_blocks_id_seq OWNED BY ip_blocks.id;
@@ -131,6 +163,15 @@ ALTER SEQUENCE users_id_seq OWNED BY users.id;
 ALTER SEQUENCE vcid_ranges_id_seq OWNED BY vcid_ranges.id;
 ALTER SEQUENCE vlan_ranges_id_seq OWNED BY vlan_ranges.id;
 ALTER SEQUENCE vlans_id_seq OWNED BY vlans.id;
+ALTER SEQUENCE msps_id_seq OWNED BY msps.id;
+ALTER SEQUENCE ipran_clusters_id_seq OWNED BY ipran_clusters.id;
+
+-- Insert some default MSPs (example data)
+INSERT INTO msps (name) VALUES 
+    ('Huawei'),
+    ('ZTE'),
+    ('Nokia')
+ON CONFLICT (name) DO NOTHING;
 
 -- Create default admin user
 -- Password is 'admin123' (hashed with bcrypt)

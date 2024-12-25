@@ -48,6 +48,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     name: '',
     ipAddress: '',
     region_id: '',
+    msp: '',
+    ipran_cluster: ''
   });
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
         name: site.name,
         ipAddress: site.ipAddress || '',
         region_id: site.region_id || '',
+        msp: site.msp || '',
+        ipran_cluster: site.ipranCluster || ''
       });
     }
     fetchRegions();
@@ -83,8 +87,14 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     if (!formData.region_id) {
       newErrors.region_id = 'Region is required';
     }
-    if (formData.ipAddress && !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
-      newErrors.ipAddress = 'Invalid IP address format';
+    if (!formData.ipAddress || !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
+      newErrors.ipAddress = 'Valid IP address is required';
+    }
+    if (!formData.msp.trim()) {
+      newErrors.msp = 'MSP is required';
+    }
+    if (!formData.ipran_cluster.trim()) {
+      newErrors.ipran_cluster = 'IPRAN Cluster is required';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -112,7 +122,9 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     const submitData = {
       name: formData.name,
       ip: formData.ipAddress,
-      region_id: formData.region_id
+      region_id: formData.region_id,
+      msp: formData.msp,
+      ipran_cluster: formData.ipran_cluster
     };
 
     setLoading(true);
@@ -212,7 +224,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             value={formData.ipAddress}
             onChange={handleChange}
             error={!!errors.ipAddress}
-            helperText={errors.ipAddress || 'Optional - Can be generated later'}
+            helperText={errors.ipAddress}
+            required
             fullWidth
             size="small"
             InputProps={{
@@ -224,6 +237,30 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
                 </InputAdornment>
               ) : null
             }}
+          />
+
+          <TextField
+            name="msp"
+            label="MSP"
+            value={formData.msp}
+            onChange={handleChange}
+            error={!!errors.msp}
+            helperText={errors.msp}
+            required
+            fullWidth
+            size="small"
+          />
+
+          <TextField
+            name="ipran_cluster"
+            label="IPRAN Cluster"
+            value={formData.ipran_cluster}
+            onChange={handleChange}
+            error={!!errors.ipran_cluster}
+            helperText={errors.ipran_cluster}
+            required
+            fullWidth
+            size="small"
           />
         </FormSection>
       </StyledDialogContent>

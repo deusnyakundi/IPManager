@@ -112,6 +112,8 @@ const SitesList = ({
             </Tooltip>
           ) : '-'}
         </StyledTableCell>
+        <StyledTableCell>{site.msp}</StyledTableCell>
+        <StyledTableCell>{site.ipranCluster}</StyledTableCell>
         <StyledTableCell>
           <StatusChip 
             label={site.ipAddress ? 'Active' : 'Pending'}
@@ -171,6 +173,8 @@ const SitesList = ({
             <StyledTableCell>Site Name</StyledTableCell>
             <StyledTableCell>Region</StyledTableCell>
             <StyledTableCell>IP Address</StyledTableCell>
+            <StyledTableCell>MSP</StyledTableCell>
+            <StyledTableCell>IPRAN Cluster</StyledTableCell>
             <StyledTableCell>Status</StyledTableCell>
             <StyledTableCell>Actions</StyledTableCell>
           </TableRow>

@@ -13,7 +13,9 @@ const siteController = {
           s.name,
           s.ip as "ipAddress",
           s.region_id as "regionId",
-          r.name as "regionName"
+          r.name as "regionName",
+          s.msp,
+          s.ipran_cluster as "ipranCluster"
         FROM sites s 
         LEFT JOIN regions r ON s.region_id = r.id
         WHERE 1=1
@@ -53,7 +55,9 @@ const siteController = {
         region: site.regionName ? {
           id: site.regionId,
           name: site.regionName
-        } : null
+        } : null,
+        msp: site.msp,
+        ipranCluster: site.ipranCluster
       }));
       
       res.json(sites);
@@ -65,7 +69,7 @@ const siteController = {
 
   // Create a new site
   createSite: async (req, res) => {
-    const { name, ip, region_id } = req.body;
+    const { name, ip, region_id, msp, ipran_cluster } = req.body;
     
     // Sanitize the site name - remove special characters and normalize
     const sanitizedName = name
@@ -78,6 +82,8 @@ const siteController = {
       originalName: name,
       ip: ip,
       regionId: region_id,
+      msp: msp,
+      ipranCluster: ipran_cluster,
       requestBody: req.body,
       timestamp: new Date()
     });
@@ -126,13 +132,16 @@ const siteController = {
       }
 
       const result = await pool.query(
-        'INSERT INTO sites (name, ip, region_id) VALUES ($1, $2, $3) RETURNING *',
-        [sanitizedName, ip, region_id]
+        `INSERT INTO sites (name, ip, region_id, msp, ipran_cluster) 
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [sanitizedName, ip, region_id, msp, ipran_cluster]
       );
 
       logger.info('Site created successfully', {
         siteName: sanitizedName,
         siteId: result.rows[0].id,
+        msp: msp,
+        ipranCluster: ipran_cluster,
         timestamp: new Date()
       });
 
@@ -161,11 +170,13 @@ const siteController = {
   // Update a site
   updateSite: async (req, res) => {
     const { id } = req.params;
-    const { name, ipAddress, region_id } = req.body;
+    const { name, ipAddress, region_id, msp, ipran_cluster } = req.body;
     try {
       const result = await pool.query(
-        'UPDATE sites SET name = $1, ip = $2, region_id = $3 WHERE id = $4 RETURNING *',
-        [name, ipAddress, region_id, id]
+        `UPDATE sites 
+         SET name = $1, ip = $2, region_id = $3, msp = $4, ipran_cluster = $5 
+         WHERE id = $6 RETURNING *`,
+        [name, ipAddress, region_id, msp, ipran_cluster, id]
       );
       if (result.rows.length === 0) {
         return res.status(404).json({ message: 'Site not found' });
