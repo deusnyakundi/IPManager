@@ -48,10 +48,12 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     name: '',
     ipAddress: '',
     region_id: '',
-    msp: '',
-    ipran_cluster: ''
+    msp_id: '',
+    ipran_cluster_id: ''
   });
   const [regions, setRegions] = useState([]);
+  const [msps, setMsps] = useState([]);
+  const [ipran_clusters, setIPRANClusters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -62,11 +64,13 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
         name: site.name,
         ipAddress: site.ipAddress || '',
         region_id: site.region_id || '',
-        msp: site.msp || '',
-        ipran_cluster: site.ipranCluster || ''
+        msp_id: site.msp_id || '',
+        ipran_cluster_id: site.ipran_cluster_id || ''
       });
     }
     fetchRegions();
+    fetchMsps();
+    fetchIPRANClusters();
   }, [site]);
 
   const fetchRegions = async () => {
@@ -76,6 +80,27 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     } catch (error) {
       console.error('Error fetching regions:', error);
       setSubmitError('Failed to load regions. Please try again.');
+    }
+  };
+
+
+  const fetchMsps = async () => {
+    try {
+      const response = await api.get('/msps');
+      setMsps(response.data);
+    } catch (error) {
+      console.error('Error fetching MSPs:', error);
+      setSubmitError('Failed to load MSPs. Please try again.');
+    }
+  };
+
+  const fetchIPRANClusters = async () => {
+    try {
+      const response = await api.get('/ipran-clusters');
+      setIPRANClusters(response.data);
+    } catch (error) {
+      console.error('Error fetching IPRAN Clusters:', error);
+      setSubmitError('Failed to load IPRAN Clusters. Please try again.');
     }
   };
 
@@ -90,11 +115,11 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     if (!formData.ipAddress || !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
       newErrors.ipAddress = 'Valid IP address is required';
     }
-    if (!formData.msp.trim()) {
-      newErrors.msp = 'MSP is required';
+    if (!formData.msp_id) {
+      newErrors.msp_id = 'MSP is required';
     }
-    if (!formData.ipran_cluster.trim()) {
-      newErrors.ipran_cluster = 'IPRAN Cluster is required';
+    if (!formData.ipran_cluster_id) {
+      newErrors.ipran_cluster_id = 'IPRAN Cluster is required';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -123,8 +148,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
       name: formData.name,
       ip: formData.ipAddress,
       region_id: formData.region_id,
-      msp: formData.msp,
-      ipran_cluster: formData.ipran_cluster
+      msp_id: formData.msp_id,
+      ipran_cluster_id: formData.ipran_cluster_id
     };
 
     setLoading(true);
@@ -239,29 +264,56 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             }}
           />
 
-          <TextField
-            name="msp"
+         <TextField
+            select
+            name="msp_id"
             label="MSP"
-            value={formData.msp}
+            value={formData.msp_id}
             onChange={handleChange}
-            error={!!errors.msp}
-            helperText={errors.msp}
+            error={!!errors.msp_id}
+            helperText={errors.msp_id}
             required
             fullWidth
             size="small"
-          />
-
+            InputProps={{
+              startAdornment: formData.msp_id ? (
+                <InputAdornment position="start">
+                  <LocationIcon fontSize="small" />
+                </InputAdornment>
+              ) : null
+            }}
+          >
+            {msps.map((msp) => (
+              <MenuItem key={msp.id} value={msp.id}>
+                {msp.name}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
-            name="ipran_cluster"
+            select
+            name="ipran_cluster_id"
             label="IPRAN Cluster"
-            value={formData.ipran_cluster}
+            value={formData.ipran_cluster_id}
             onChange={handleChange}
-            error={!!errors.ipran_cluster}
-            helperText={errors.ipran_cluster}
+            error={!!errors.ipran_cluster_id}
+            helperText={errors.ipran_cluster_id}
             required
             fullWidth
             size="small"
-          />
+            InputProps={{
+              startAdornment: formData.ipran_cluster_id ? (
+                <InputAdornment position="start">
+                  <LocationIcon fontSize="small" />
+                </InputAdornment>
+              ) : null
+            }}
+          >
+            {ipran_clusters.map((ipran_cluster) => (
+              <MenuItem key={ipran_cluster.id} value={ipran_cluster.id}>
+                {ipran_cluster.name}
+              </MenuItem>
+            ))}
+          </TextField>
         </FormSection>
       </StyledDialogContent>
 
