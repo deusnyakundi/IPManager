@@ -46,13 +46,9 @@ const ConfigurationGenerator = () => {
 
   const fetchAssignments = async () => {
     try {
-      console.log('Fetching assignments...');
-      const response = await api.get('/config/assignments', {
-        params: {
-          search: searchTerm
-        }
+      const response = await api.get('/config/all-assignments', {
+        params: { search: searchTerm }
       });
-      console.log('Assignments response:', response.data);
       setAssignments(response.data);
     } catch (error) {
       console.error('Error fetching assignments:', error);

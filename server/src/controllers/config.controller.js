@@ -3,32 +3,80 @@ const path = require('path');
 const pool = require('../config/db');
 
 const configController = {
-  // Get all IP assignments
+  // Get dashboard statistics
   getAssignments: async (req, res) => {
     try {
-      console.log('Getting assignments...');
-      const { search } = req.query;
-      
-      let query = `
-        SELECT * FROM ip_assignments 
-        WHERE 1=1
+      console.log('Getting dashboard stats...');
+      const query = `
+        WITH base_sites AS (
+          SELECT DISTINCT
+            REPLACE(REPLACE(ia.site_name, '-OLT', ''), '-OLT02', '') as base_name,
+            r.name as region_name,
+            m.name as msp_name,
+            COUNT(*) as olt_count,
+            string_agg(CASE 
+              WHEN ia.site_name LIKE '%ADRIAN%' THEN 'adrian'
+              WHEN ia.site_name LIKE '%EGYPRO%' THEN 'egypro'
+              WHEN ia.site_name LIKE '%HUAWEI%' THEN 'huawei'
+              WHEN ia.site_name LIKE '%NOKIA%' THEN 'nokia'
+              ELSE 'other'
+            END, ',') as vendor_types
+          FROM ip_assignments ia
+          LEFT JOIN sites s ON REPLACE(REPLACE(s.name, '-OLT', ''), '-OLT02', '') = 
+                             REPLACE(REPLACE(ia.site_name, '-OLT', ''), '-OLT02', '')
+          LEFT JOIN regions r ON s.region_id = r.id
+          LEFT JOIN msps m ON s.msp_id = m.id
+          WHERE ia.site_name LIKE '%-OLT%'
+          GROUP BY 
+            REPLACE(REPLACE(ia.site_name, '-OLT', ''), '-OLT02', ''),
+            r.name,
+            m.name
+        )
+        SELECT 
+          base_name,
+          region_name,
+          msp_name,
+          olt_count,
+          vendor_types
+        FROM base_sites
+        ORDER BY base_name
       `;
       
-      const params = [];
-      if (search) {
-        query += ` AND site_name ILIKE $1`;
-        params.push(`%${search}%`);
-      }
-      
-      query += ` ORDER BY created_at DESC`;
-      
-      const result = await pool.query(query, params);
-      console.log('Found assignments:', result.rows);
+      const result = await pool.query(query);
       res.json(result.rows);
     } catch (error) {
-      console.error('Full error:', error);
       console.error('Error getting assignments:', error);
       res.status(500).json({ message: 'Error getting assignments' });
+    }
+  },
+
+  // Get full IP assignments list for config generator
+  getAllAssignments: async (req, res) => {
+    try {
+      const { search } = req.query;
+      
+      const query = `
+        SELECT 
+          ia.*,
+          s.region_id,
+          r.name as region_name,
+          s.msp_id,
+          m.name as msp_name
+        FROM ip_assignments ia
+        LEFT JOIN sites s ON REPLACE(REPLACE(s.name, '-OLT', ''), '-OLT02', '') = 
+                           REPLACE(REPLACE(ia.site_name, '-OLT', ''), '-OLT02', '')
+        LEFT JOIN regions r ON s.region_id = r.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        ${search ? "WHERE ia.site_name ILIKE $1" : ""}
+        ORDER BY ia.site_name
+      `;
+      
+      const params = search ? [`%${search}%`] : [];
+      const result = await pool.query(query, params);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error getting all assignments:', error);
+      res.status(500).json({ message: 'Error getting all assignments' });
     }
   },
 

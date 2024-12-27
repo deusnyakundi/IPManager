@@ -1,5 +1,5 @@
 import api from '../utils/api';
-import * as XLSX from 'xlsx';
+import { utils as XLSXUtils, write as XLSXWrite } from 'xlsx';
 
 export const siteAPI = {
   getAllSites: (params) => api.get('/sites', { params }),
@@ -24,8 +24,8 @@ export const siteAPI = {
       }));
 
       // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSXUtils.book_new();
+      const ws = XLSXUtils.json_to_sheet(excelData);
 
       // Set column widths
       const colWidths = [
@@ -38,10 +38,10 @@ export const siteAPI = {
       ws['!cols'] = colWidths;
 
       // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, 'Sites');
+      XLSXUtils.book_append_sheet(wb, ws, 'Sites');
 
       // Generate Excel file
-      XLSX.writeFile(wb, 'sites.xlsx');
+      XLSXWrite(wb, 'sites.xlsx');
       
     } catch (error) {
       console.error('Error exporting sites:', error);
@@ -55,13 +55,13 @@ export const siteAPI = {
         reader.onload = async (e) => {
           try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSXUtils.read(data, { type: 'array' });
             
             // Get first worksheet
             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
             
             // Convert to JSON
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            const jsonData = XLSXUtils.sheet_to_json(worksheet);
 
             // Format data for API - send the text values
             const formattedData = jsonData.map(row => ({

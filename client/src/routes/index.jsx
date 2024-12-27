@@ -23,7 +23,13 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
       <Route path="/logout" element={user ? <Login /> : <Navigate to="/login" replace />} />
-      <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+      <Route path="/" element={
+        user ? (
+          console.log('Rendering Dashboard') || <Dashboard />
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
       <Route path="/generate-ip" element={user ? <SiteSubmission /> : <Navigate to="/login" replace />} />
       <Route path="/admin" element={user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" replace />} />
       <Route path="/vlan-ranges" element={user?.role === 'admin' ? <ManageVLANRanges/> : <Navigate to="/" replace />} />
