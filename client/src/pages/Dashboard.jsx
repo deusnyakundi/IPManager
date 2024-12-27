@@ -141,53 +141,108 @@ const Dashboard = () => {
   );
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">
-            IP Assignment Dashboard
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Pseudowire Generator">
-              <IconButton 
-                onClick={() => navigate('/pseudowire-generator')}
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+        backgroundColor: 'background.paper', 
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        {/* Header Paper */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
+        >
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={0}
+            sx={{ 
+              minHeight: '32px',
+              py: 0,
+              m: 0,
+              '& .MuiGrid-item': { 
+                p: 0,
+                m: 0
+              }
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
                 sx={{ 
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  }
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
                 }}
               >
-                <CompareArrowsIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Config Generator">
-              <IconButton 
-                onClick={() => navigate('/config-generator')}
-                sx={{ 
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  }
-                }}
-              >
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Refresh Data">
-              <IconButton onClick={fetchDashboardData}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
+                IP Assignment Dashboard
+              </Typography>
+            </Grid>
+            <Grid item>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Tooltip title="Pseudowire Generator">
+                  <IconButton 
+                    onClick={() => navigate('/pseudowire-generator')}
+                    sx={{ 
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      }
+                    }}
+                  >
+                    <CompareArrowsIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Config Generator">
+                  <IconButton 
+                    onClick={() => navigate('/config-generator')}
+                    sx={{ 
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      }
+                    }}
+                  >
+                    <SettingsIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Refresh Data">
+                  <IconButton onClick={fetchDashboardData}>
+                    <RefreshIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
 
+        {/* Main Content */}
         {loading ? (
           <LinearProgress />
         ) : (
-          <>
+          <Paper sx={{ 
+            mt: 1,
+            borderRadius: 0,
+            p: 2
+          }}>
             <Grid container spacing={3}>
               {/* Stats Cards */}
               <Grid item xs={12} sm={6}>
@@ -275,7 +330,7 @@ const Dashboard = () => {
                 </Grid>
               )}
             </Grid>
-          </>
+          </Paper>
         )}
       </Box>
     </Container>
