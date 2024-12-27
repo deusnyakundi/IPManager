@@ -16,10 +16,14 @@ import {
   Router as IpIcon,
   Refresh as RefreshIcon,
   Storage as OltIcon,
+  Settings as SettingsIcon,
+  Build as BuildIcon,
+  CompareArrows as CompareArrowsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   console.log('Dashboard component rendering');
@@ -38,6 +42,7 @@ const Dashboard = () => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchDashboardData = async () => {
     console.log('Fetching dashboard data...');
@@ -142,11 +147,41 @@ const Dashboard = () => {
           <Typography variant="h4">
             IP Assignment Dashboard
           </Typography>
-          <Tooltip title="Refresh Data">
-            <IconButton onClick={fetchDashboardData}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Tooltip title="Pseudowire Generator">
+              <IconButton 
+                onClick={() => navigate('/pseudowire-generator')}
+                sx={{ 
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  }
+                }}
+              >
+                <CompareArrowsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Config Generator">
+              <IconButton 
+                onClick={() => navigate('/config-generator')}
+                sx={{ 
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  }
+                }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Refresh Data">
+              <IconButton onClick={fetchDashboardData}>
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {loading ? (
