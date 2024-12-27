@@ -17,11 +17,13 @@ import {
   Select,
   MenuItem,
   Alert,
-  Container
+  Container,
+  Snackbar
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { ipAPI, ipranClusterAPI } from '../../utils/api';
 import IPInput from '../common/IPInput';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageIPBlocks = () => {
   const [ipBlocks, setIPBlocks] = useState([]);
@@ -30,6 +32,9 @@ const ManageIPBlocks = () => {
   const [cidr, setCidr] = useState('24'); // Default CIDR value
   const [selectedCluster, setSelectedCluster] = useState('');
   const [error, setError] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchIPBlocks();
@@ -78,29 +83,36 @@ const ManageIPBlocks = () => {
         block: blockWithCidr, 
         ipranClusterId: selectedCluster 
       });
-      const response = await ipAPI.createIPBlock({ 
+      await ipAPI.createIPBlock({ 
         block: blockWithCidr, 
         ipranClusterId: selectedCluster 
       });
-      console.log('Add block response:', response.data);
+      setSuccessMessage('IP block added successfully');
+      setShowSuccess(true);
       setNewBlock('');
-      setCidr('24'); // Reset CIDR to default
+      setCidr('24');
       setSelectedCluster('');
       setError('');
       fetchIPBlocks();
     } catch (error) {
-      console.error('Error adding IP block:', error);
       setError(error.response?.data?.message || 'Error adding IP block');
     }
   };
 
   const handleDeleteBlock = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await ipAPI.deleteIPBlock(id);
+      await ipAPI.deleteIPBlock(deleteId);
+      setSuccessMessage('IP block deleted successfully');
+      setShowSuccess(true);
       fetchIPBlocks();
     } catch (error) {
-      console.error('Error deleting IP block:', error);
       setError(error.response?.data?.message || 'Error deleting IP block');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -219,6 +231,29 @@ const ManageIPBlocks = () => {
           </TableContainer>
         </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete IP Block"
+        content="Are you sure you want to delete this IP block? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

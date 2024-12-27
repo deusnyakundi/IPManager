@@ -22,9 +22,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import api, { ipranClusterAPI } from '../../utils/api';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageVCIDRanges = () => {
   const [vcidRanges, setVCIDRanges] = useState([]);
@@ -40,6 +43,9 @@ const ManageVCIDRanges = () => {
     start_vsi_id: '',
     end_vsi_id: ''
   });
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     console.log('ManageVCIDRanges mounted');
@@ -72,6 +78,8 @@ const ManageVCIDRanges = () => {
     setLoading(true);
     try {
       await api.post('/vcid/ranges', formData);
+      setSuccessMessage('VCID range added successfully');
+      setShowSuccess(true);
       setOpen(false);
       fetchVCIDRanges();
       setFormData({
@@ -92,12 +100,20 @@ const ManageVCIDRanges = () => {
   };
 
   const handleDelete = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/vcid/ranges/${id}`);
+      await api.delete(`/vcid/ranges/${deleteId}`);
+      setSuccessMessage('VCID range deleted successfully');
+      setShowSuccess(true);
       fetchVCIDRanges();
     } catch (error) {
       console.error('Error deleting VCID range:', error);
       alert(error.response?.data?.message || 'Error deleting VCID range');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -326,6 +342,29 @@ const ManageVCIDRanges = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete VCID Range"
+        content="Are you sure you want to delete this VCID range? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

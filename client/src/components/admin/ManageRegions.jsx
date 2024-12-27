@@ -15,12 +15,18 @@ import {
   TableRow,
   TableCell,
   IconButton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageRegions = () => {
   const [regions, setRegions] = useState([]);
   const [newRegion, setNewRegion] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchRegions();
@@ -47,11 +53,31 @@ const ManageRegions = () => {
   };
 
   const handleDeleteRegion = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await regionAPI.deleteRegion(id);
+      await regionAPI.deleteRegion(deleteId);
+      setSuccessMessage('Region deleted successfully');
+      setShowSuccess(true);
       fetchRegions();
     } catch (error) {
-      console.error('Error deleting region:', error);
+      setError(error.response?.data?.message || 'Error deleting region');
+    } finally {
+      setDeleteId(null);
+    }
+  };
+
+  const handleAdd = async () => {
+    try {
+      await regionAPI.post('/regions', { name: newRegion });
+      setSuccessMessage('Region added successfully');
+      setShowSuccess(true);
+      setNewRegion('');
+      fetchRegions();
+    } catch (error) {
+      setError(error.response?.data?.message || 'Error adding region');
     }
   };
 
@@ -181,6 +207,29 @@ const ManageRegions = () => {
           </Box>
         </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Region"
+        content="Are you sure you want to delete this region? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { mspAPI } from '../../utils/api';
-import { Box, Typography, Button, TextField, Paper, TableContainer, Table, TableHead, TableBody, TableRow, TableCell, IconButton, Grid, Container } from '@mui/material';
+import { Box, Typography, Button, TextField, Paper, TableContainer, Table, TableHead, TableBody, TableRow, TableCell, IconButton, Grid, Container, Snackbar, Alert } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageMSPs = () => {
   const [msps, setMsps] = useState([]);
   const [formData, setFormData] = useState('');
   const [editingMsp, setEditingMsp] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchMSPs();
@@ -38,11 +42,31 @@ const ManageMSPs = () => {
   };
 
   const handleDeleteMsp = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await mspAPI.deleteMSP(id);
+      await mspAPI.deleteMSP(deleteId);
+      setSuccessMessage('MSP deleted successfully');
+      setShowSuccess(true);
       fetchMSPs();
     } catch (error) {
-      console.error('Error deleting MSP:', error);
+      setError(error.response?.data?.message || 'Error deleting MSP');
+    } finally {
+      setDeleteId(null);
+    }
+  };
+
+  const handleAdd = async () => {
+    try {
+      await mspAPI.createMSP(formData);
+      setSuccessMessage('MSP added successfully');
+      setShowSuccess(true);
+      setFormData('');
+      fetchMSPs();
+    } catch (error) {
+      setError(error.response?.data?.message || 'Error adding MSP');
     }
   };
 
@@ -181,6 +205,29 @@ const ManageMSPs = () => {
           </Box>
         </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete MSP"
+        content="Are you sure you want to delete this MSP? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

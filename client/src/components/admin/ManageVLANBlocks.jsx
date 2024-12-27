@@ -17,10 +17,12 @@ import {
   Select,
   MenuItem,
   Alert,
-  Container
+  Container,
+  Snackbar
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { vlanAPI, ipranClusterAPI } from '../../utils/api';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageVLANRanges = () => {
   const [vlanRanges, setVlanRanges] = useState([]);
@@ -29,6 +31,9 @@ const ManageVLANRanges = () => {
   const [endVLAN, setEndVLAN] = useState('');
   const [selectedCluster, setSelectedCluster] = useState('');
   const [error, setError] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchVLANRanges();
@@ -75,6 +80,8 @@ const ManageVLANRanges = () => {
         end_vlan: end,
         ipranClusterId: selectedCluster
       });
+      setSuccessMessage('VLAN range added successfully');
+      setShowSuccess(true);
       setStartVLAN('');
       setEndVLAN('');
       setSelectedCluster('');
@@ -86,11 +93,19 @@ const ManageVLANRanges = () => {
   };
 
   const handleDeleteRange = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await vlanAPI.deleteVLANRange(id);
+      await vlanAPI.deleteVLANRange(deleteId);
+      setSuccessMessage('VLAN range deleted successfully');
+      setShowSuccess(true);
       fetchVLANRanges();
     } catch (error) {
       setError(error.response?.data?.message || 'Error deleting VLAN range');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -269,6 +284,29 @@ const ManageVLANRanges = () => {
           </Box>
         </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete VLAN Range"
+        content="Are you sure you want to delete this VLAN range? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

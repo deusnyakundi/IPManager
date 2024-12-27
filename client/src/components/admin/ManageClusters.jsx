@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, TextField, Paper, TableContainer, Table, TableHead, TableBody, TableRow, TableCell, IconButton, Grid, Dialog } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import api from '../../utils/api';
+import ConfirmDialog from '../common/ConfirmDialog';
+import { Snackbar, Alert } from '@mui/material';
 
 const ManageClusters = () => {
   const [clusters, setClusters] = useState([]);
@@ -9,6 +11,9 @@ const ManageClusters = () => {
   const [editingCluster, setEditingCluster] = useState(null);
   const [formData, setFormData] = useState({ name: '' });
   const [error, setError] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchClusters();
@@ -41,11 +46,19 @@ const ManageClusters = () => {
   };
 
   const handleDelete = async (id) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/ipran-clusters/${id}`);
+      await api.delete(`/clusters/${deleteId}`);
+      setSuccessMessage('Cluster deleted successfully');
+      setShowSuccess(true);
       fetchClusters();
     } catch (error) {
       setError(error.response?.data?.message || 'Error deleting cluster');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -63,6 +76,18 @@ const ManageClusters = () => {
       
     });
     setOpenDialog(true);
+  };
+
+  const handleAdd = async () => {
+    try {
+      await api.post('/clusters', { name: newCluster });
+      setSuccessMessage('Cluster added successfully');
+      setShowSuccess(true);
+      setNewCluster('');
+      fetchClusters();
+    } catch (error) {
+      setError(error.response?.data?.message || 'Error adding cluster');
+    }
   };
 
   return (
@@ -186,6 +211,29 @@ const ManageClusters = () => {
           </Box>
         </Box>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Cluster"
+        content="Are you sure you want to delete this cluster? This action cannot be undone."
+      />
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setShowSuccess(false)} 
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
