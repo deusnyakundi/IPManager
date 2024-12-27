@@ -774,12 +774,19 @@ const siteController = {
       const { id } = req.params;
       const result = await pool.query(`
         SELECT 
-          s.*,
-          ic.name as cluster_name,
-          m.name as msp_name
+          s.id,
+          s.name,
+          s.ip as "ipAddress",
+          s.region_id as "regionId",
+          r.name as "regionName",
+          s.msp_id as "mspId",
+          m.name as "mspName",
+          s.ipran_cluster_id as "ipranClusterId",
+          ic.name as "ipranCluster"
         FROM sites s
-        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
+        LEFT JOIN regions r ON s.region_id = r.id
         LEFT JOIN msps m ON s.msp_id = m.id
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
         WHERE s.id = $1
       `, [id]);
 
@@ -787,10 +794,212 @@ const siteController = {
         return res.status(404).json({ message: 'Site not found' });
       }
 
-      res.json(result.rows[0]);
+      const site = result.rows[0];
+      
+      // Format response to match frontend expectations
+      res.json({
+        id: site.id,
+        name: site.name,
+        ipAddress: site.ipAddress,
+        regionId: site.regionId,
+        region: site.regionName ? {
+          id: site.regionId,
+          name: site.regionName
+        } : null,
+        mspId: site.mspId,
+        msp: site.mspName ? {
+          id: site.mspId,
+          name: site.mspName
+        } : null,
+        ipranClusterId: site.ipranClusterId,
+        ipranCluster: site.ipranCluster
+      });
+
     } catch (error) {
       console.error('Error getting site:', error);
-      res.status(500).json({ message: 'Error getting site details' });
+      res.status(500).json({ 
+        message: 'Error getting site details',
+        error: error.message  // Add error details for debugging
+      });
+    }
+  },
+
+  exportSites: async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          s.name as "Site Name",
+          s.ip as "IP Address",
+          r.name as "Region",
+          m.name as "MSP",
+          ic.name as "IPRAN Cluster"
+        FROM sites s 
+        LEFT JOIN regions r ON s.region_id = r.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
+        ORDER BY s.name
+      `);
+
+      if (result.rows.length === 0) {
+        throw new Error('No sites found to export');
+      }
+
+      // Create CSV header
+      const headers = ['Site Name', 'IP Address', 'Region', 'MSP', 'IPRAN Cluster'];
+      
+      // Create CSV rows
+      const rows = result.rows.map(site => [
+        site['Site Name'] || '',
+        site['IP Address'] || '',
+        site['Region'] || '',
+        site['MSP'] || '',
+        site['IPRAN Cluster'] || ''
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => 
+          cell ? `"${cell.toString().replace(/"/g, '""')}"` : ''
+        ).join(','))
+      ].join('\n');
+
+      // Set response headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=sites.csv');
+
+      // Send the CSV content
+      res.send(csvContent);
+
+    } catch (error) {
+      console.error('Error exporting sites:', error);
+      res.status(500).json({ 
+        message: 'Error exporting sites',
+        error: error.message 
+      });
+    }
+  },
+
+  importSites: async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { sites } = req.body;
+      const results = [];
+      const errors = [];
+
+      // First, get all regions, MSPs, and IPRAN clusters to avoid multiple queries
+      const regionsResult = await client.query('SELECT id, name FROM regions');
+      const mspsResult = await client.query('SELECT id, name FROM msps');
+      const clustersResult = await client.query('SELECT id, name FROM ipran_clusters');
+
+      // Create lookup maps
+      const regionMap = new Map(regionsResult.rows.map(r => [r.name.toLowerCase(), r.id]));
+      const mspMap = new Map(mspsResult.rows.map(m => [m.name.toLowerCase(), m.id]));
+      const clusterMap = new Map(clustersResult.rows.map(c => [c.name.toLowerCase(), c.id]));
+
+      for (const site of sites) {
+        try {
+          await client.query('BEGIN');
+
+          // Look up IDs from the maps
+          const region_id = site.region ? regionMap.get(site.region.toLowerCase()) : null;
+          const msp_id = site.msp ? mspMap.get(site.msp.toLowerCase()) : null;
+          const ipran_cluster_id = site.ipranCluster ? clusterMap.get(site.ipranCluster.toLowerCase()) : null;
+
+          // Validate required relationships
+          if (site.region && !region_id) {
+            throw new Error(`Region "${site.region}" not found`);
+          }
+
+          // Check if IP exists (if provided)
+          let existingSite = null;
+          if (site.ip) {
+            const ipCheck = await client.query(
+              'SELECT id FROM sites WHERE ip = $1',
+              [site.ip]
+            );
+            existingSite = ipCheck.rows[0];
+          }
+
+          let result;
+          if (existingSite) {
+            // Update existing site
+            result = await client.query(
+              `UPDATE sites 
+               SET name = $1,
+                   region_id = $2,
+                   msp_id = $3,
+                   ipran_cluster_id = $4
+               WHERE id = $5
+               RETURNING *`,
+              [
+                site.name,
+                region_id,
+                msp_id,
+                ipran_cluster_id,
+                existingSite.id
+              ]
+            );
+          } else {
+            // Insert new site
+            result = await client.query(
+              `INSERT INTO sites (
+                name,
+                ip,
+                region_id,
+                msp_id,
+                ipran_cluster_id
+              ) VALUES ($1, $2, $3, $4, $5)
+              RETURNING *`,
+              [
+                site.name,
+                site.ip || null,
+                region_id,
+                msp_id,
+                ipran_cluster_id
+              ]
+            );
+          }
+
+          await client.query('COMMIT');
+          results.push(result.rows[0]);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          errors.push({ 
+            site: site.name, 
+            error: error.message,
+            details: {
+              providedRegion: site.region,
+              providedMSP: site.msp,
+              providedCluster: site.ipranCluster,
+              providedIP: site.ip
+            }
+          });
+        }
+      }
+
+      // Return results
+      if (results.length > 0) {
+        res.json({ 
+          success: results,
+          errors: errors,
+          summary: `Successfully imported ${results.length} sites, ${errors.length} failures`
+        });
+      } else {
+        res.status(400).json({ 
+          message: 'No sites were imported',
+          errors: errors
+        });
+      }
+    } catch (error) {
+      console.error('Error importing sites:', error);
+      res.status(500).json({ 
+        message: 'Error importing sites',
+        error: error.message,
+        details: error.stack
+      });
+    } finally {
+      client.release();
     }
   }
 };

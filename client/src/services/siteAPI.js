@@ -1,4 +1,5 @@
 import api from '../utils/api';
+import * as XLSX from 'xlsx';
 
 export const siteAPI = {
   getAllSites: (params) => api.get('/sites', { params }),
@@ -9,12 +10,81 @@ export const siteAPI = {
   },
   updateSite: (id, data) => api.put(`/sites/${id}`, data),
   deleteSite: (id) => api.delete(`/sites/${id}`),
-  exportSites: () => api.get('/sites/export', { responseType: 'blob' }),
-  importSites: (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post('/sites/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+  exportSites: async () => {
+    try {
+      const response = await api.get('/sites');
+      
+      // Format data for Excel
+      const excelData = response.data.map(site => ({
+        'Site Name': site.name,
+        'IP Address': site.ipAddress || '',
+        'Region': site.region?.name || '',
+        'MSP': site.msp?.name || '',
+        'IPRAN Cluster': site.ipranCluster || ''
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      const colWidths = [
+        { wch: 40 }, // Site Name
+        { wch: 15 }, // IP Address
+        { wch: 20 }, // Region
+        { wch: 20 }, // MSP
+        { wch: 20 }  // IPRAN Cluster
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Sites');
+
+      // Generate Excel file
+      XLSX.writeFile(wb, 'sites.xlsx');
+      
+    } catch (error) {
+      console.error('Error exporting sites:', error);
+      throw error;
+    }
+  },
+  importSites: async (file) => {
+    try {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Get first worksheet
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            
+            // Convert to JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            // Format data for API - send the text values
+            const formattedData = jsonData.map(row => ({
+              name: row['Site Name'],
+              ip: row['IP Address'],
+              region: row['Region'],        // Send region name
+              msp: row['MSP'],             // Send MSP name
+              ipranCluster: row['IPRAN Cluster']  // Send cluster name
+            }));
+
+            // Send to backend
+            const response = await api.post('/sites/import', { sites: formattedData });
+            resolve(response);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsArrayBuffer(file);
+      });
+    } catch (error) {
+      console.error('Error importing sites:', error);
+      throw error;
+    }
   }
 }; 
