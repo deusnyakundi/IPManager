@@ -61,7 +61,10 @@ const siteController = {
           name: site.regionName
         } : null,
         mspId: site.msp_id,
-        msp: site.mspName,
+        msp: site.mspName ? {
+          id: site.msp_id,
+          name: site.mspName
+        } : null,
         ipranClusterId: site.ipran_cluster_id,
         ipranCluster: site.ipranCluster
       }));

@@ -40,9 +40,9 @@ const SearchableSiteSelect = ({
     setSearchTerm('');
   };
 
-  // Display value in input
+  // Display value in input with both Region and MSP
   const displayValue = value 
-    ? `${value.name} ${value.region?.name ? `(${value.region.name})` : ''}`
+    ? `${value.name} ${value.region?.name ? `(${value.region.name})` : ''} ${value.msp?.name ? `(${value.msp.name})` : ''}`
     : '';
 
   return (
@@ -101,7 +101,9 @@ const SearchableSiteSelect = ({
                   }}
                 >
                   <Typography variant="body2">
-                    {site.name} {site.region?.name && `(${site.region.name})`}
+                    {site.name} 
+                    {site.region?.name && ` (${site.region.name})`}
+                    {site.msp?.name && ` (${site.msp.name})`}
                   </Typography>
                 </Box>
               ))

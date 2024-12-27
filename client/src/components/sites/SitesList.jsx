@@ -73,7 +73,7 @@ const SitesList = ({
     if (!sites.length) {
       return (
         <TableRow>
-          <TableCell colSpan={5} align="center">
+          <TableCell colSpan={6} align="center">
             <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
               <NetworkIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
               <Typography variant="h6" color="text.secondary">
@@ -93,14 +93,9 @@ const SitesList = ({
         <StyledTableCell>{site.name}</StyledTableCell>
         <StyledTableCell>
           {site.region ? (
-            <Chip 
-              label={site.region.name}
-              size="small"
-              sx={{ 
-                backgroundColor: 'primary.light',
-                color: 'primary.dark',
-              }}
-            />
+            <Typography variant="body2">
+              {site.region.name}
+            </Typography>
           ) : '-'}
         </StyledTableCell>
         <StyledTableCell>
@@ -112,25 +107,19 @@ const SitesList = ({
             </Tooltip>
           ) : '-'}
         </StyledTableCell>
-        <StyledTableCell>{site.msp}</StyledTableCell>
         <StyledTableCell>
-          {site.ipranCluster ? (
-            <Chip 
-              label={site.ipranCluster}
-              size="small"
-              sx={{ 
-                backgroundColor: 'info.light',
-                color: 'info.dark',
-              }}
-            />
+          {site.msp ? (
+            <Typography variant="body2">
+              {site.msp.name}
+            </Typography>
           ) : '-'}
         </StyledTableCell>
         <StyledTableCell>
-          <StatusChip 
-            label={site.ipAddress ? 'Active' : 'Pending'}
-            status={site.ipAddress ? 'active' : 'inactive'}
-            size="small"
-          />
+          {site.ipranCluster ? (
+            <Typography variant="body2">
+              {site.ipranCluster}
+            </Typography>
+          ) : '-'}
         </StyledTableCell>
         <StyledTableCell>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -186,7 +175,6 @@ const SitesList = ({
             <StyledTableCell>IP Address</StyledTableCell>
             <StyledTableCell>MSP</StyledTableCell>
             <StyledTableCell>IPRAN Cluster</StyledTableCell>
-            <StyledTableCell>Status</StyledTableCell>
             <StyledTableCell>Actions</StyledTableCell>
           </TableRow>
         </TableHead>
