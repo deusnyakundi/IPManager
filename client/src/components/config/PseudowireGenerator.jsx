@@ -14,6 +14,7 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import api from '../../utils/api';
+import { Download as DownloadIcon } from '@mui/icons-material';
 
 const PseudowireGenerator = () => {
   const [selectedSites, setSelectedSites] = useState({
@@ -115,13 +116,69 @@ pwsignal ldp
   };
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Pseudowire Configuration Generator
-        </Typography>
-        
-        <Paper sx={{ p: 3, mb: 3 }}>
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+        backgroundColor: 'background.paper', 
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        {/* Header Paper */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
+        >
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={0}
+            sx={{ 
+              minHeight: '32px',
+              py: 0,
+              m: 0,
+              '& .MuiGrid-item': { 
+                p: 0,
+                m: 0
+              }
+            }}
+          >
+            <Grid item>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
+                Pseudowire Configuration Generator
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Main Content Paper */}
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+          p: 2
+        }}>
+          {/* Form Grid */}
           <Grid container spacing={2}>
             {/* First row - OLT and Source NE */}
             <Grid item xs={12} md={6}>
@@ -196,156 +253,157 @@ pwsignal ldp
               </Button>
             </Grid>
           </Grid>
+
+          {/* Generated Configs with updated styling */}
+          {generatedConfig && (
+            <Box sx={{ mt: 3 }}>
+              {/* Source Config */}
+              <Paper sx={{ p: 3, mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6">Source Configuration</Typography>
+                  <Tooltip title="Copy to clipboard">
+                    <IconButton onClick={() => {
+                      navigator.clipboard.writeText(generatedConfig.source);
+                      setShowCopySuccess(true);
+                    }}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <pre style={{ 
+                  backgroundColor: '#f5f5f5', 
+                  padding: '1rem', 
+                  borderRadius: '4px',
+                  whiteSpace: 'pre-wrap',
+                  color: '#2e7d32',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  fontSize: '0.9rem'
+                }}>
+                  {generatedConfig.source}
+                </pre>
+              </Paper>
+
+              {/* Primary Switch Config */}
+              {generatedConfig.primarySwitch && (
+                <Paper sx={{ p: 3, mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6">Primary Switch Configuration</Typography>
+                    <Tooltip title="Copy to clipboard">
+                      <IconButton onClick={() => {
+                        navigator.clipboard.writeText(generatedConfig.primarySwitch);
+                        setShowCopySuccess(true);
+                      }}>
+                        <ContentCopyIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <pre style={{ 
+                    backgroundColor: '#f5f5f5', 
+                    padding: '1rem', 
+                    borderRadius: '4px',
+                    whiteSpace: 'pre-wrap',
+                    color: '#2e7d32',
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    fontSize: '0.9rem'
+                  }}>
+                    {generatedConfig.primarySwitch}
+                  </pre>
+                </Paper>
+              )}
+
+              {/* Secondary Switch Config */}
+              {generatedConfig.secondarySwitch && (
+                <Paper sx={{ p: 3, mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6">Secondary Switch Configuration</Typography>
+                    <Tooltip title="Copy to clipboard">
+                      <IconButton onClick={() => {
+                        navigator.clipboard.writeText(generatedConfig.secondarySwitch);
+                        setShowCopySuccess(true);
+                      }}>
+                        <ContentCopyIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <pre style={{ 
+                    backgroundColor: '#f5f5f5', 
+                    padding: '1rem', 
+                    borderRadius: '4px',
+                    whiteSpace: 'pre-wrap',
+                    color: '#2e7d32',
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    fontSize: '0.9rem'
+                  }}>
+                    {generatedConfig.secondarySwitch}
+                  </pre>
+                </Paper>
+              )}
+
+              {/* Primary Sink Config */}
+              <Paper sx={{ p: 3, mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6">Primary Sink Configuration</Typography>
+                  <Tooltip title="Copy to clipboard">
+                    <IconButton onClick={() => {
+                      navigator.clipboard.writeText(generatedConfig.primarySink);
+                      setShowCopySuccess(true);
+                    }}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <pre style={{ 
+                  backgroundColor: '#f5f5f5', 
+                  padding: '1rem', 
+                  borderRadius: '4px',
+                  whiteSpace: 'pre-wrap',
+                  color: '#2e7d32',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  fontSize: '0.9rem'
+                }}>
+                  {generatedConfig.primarySink}
+                </pre>
+              </Paper>
+
+              {/* Secondary Sink Config */}
+              <Paper sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6">Secondary Sink Configuration</Typography>
+                  <Tooltip title="Copy to clipboard">
+                    <IconButton onClick={() => {
+                      navigator.clipboard.writeText(generatedConfig.secondarySink);
+                      setShowCopySuccess(true);
+                    }}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <pre style={{ 
+                  backgroundColor: '#f5f5f5', 
+                  padding: '1rem', 
+                  borderRadius: '4px',
+                  whiteSpace: 'pre-wrap',
+                  color: '#2e7d32',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  fontSize: '0.9rem'
+                }}>
+                  {generatedConfig.secondarySink}
+                </pre>
+              </Paper>
+            </Box>
+          )}
         </Paper>
-
-        {generatedConfig && (
-          <>
-            {/* Source Config */}
-            <Paper sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">Source Configuration</Typography>
-                <Tooltip title="Copy to clipboard">
-                  <IconButton onClick={() => {
-                    navigator.clipboard.writeText(generatedConfig.source);
-                    setShowCopySuccess(true);
-                  }}>
-                    <ContentCopyIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <pre style={{ 
-                backgroundColor: '#f5f5f5', 
-                padding: '1rem', 
-                borderRadius: '4px',
-                whiteSpace: 'pre-wrap',
-                color: '#2e7d32',
-                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                fontSize: '0.9rem'
-              }}>
-                {generatedConfig.source}
-              </pre>
-            </Paper>
-
-            {/* Primary Switch Config */}
-            {generatedConfig.primarySwitch && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6">Primary Switch Configuration</Typography>
-                  <Tooltip title="Copy to clipboard">
-                    <IconButton onClick={() => {
-                      navigator.clipboard.writeText(generatedConfig.primarySwitch);
-                      setShowCopySuccess(true);
-                    }}>
-                      <ContentCopyIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                <pre style={{ 
-                  backgroundColor: '#f5f5f5', 
-                  padding: '1rem', 
-                  borderRadius: '4px',
-                  whiteSpace: 'pre-wrap',
-                  color: '#2e7d32',
-                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                  fontSize: '0.9rem'
-                }}>
-                  {generatedConfig.primarySwitch}
-                </pre>
-              </Paper>
-            )}
-
-            {/* Secondary Switch Config */}
-            {generatedConfig.secondarySwitch && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6">Secondary Switch Configuration</Typography>
-                  <Tooltip title="Copy to clipboard">
-                    <IconButton onClick={() => {
-                      navigator.clipboard.writeText(generatedConfig.secondarySwitch);
-                      setShowCopySuccess(true);
-                    }}>
-                      <ContentCopyIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                <pre style={{ 
-                  backgroundColor: '#f5f5f5', 
-                  padding: '1rem', 
-                  borderRadius: '4px',
-                  whiteSpace: 'pre-wrap',
-                  color: '#2e7d32',
-                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                  fontSize: '0.9rem'
-                }}>
-                  {generatedConfig.secondarySwitch}
-                </pre>
-              </Paper>
-            )}
-
-            {/* Primary Sink Config */}
-            <Paper sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">Primary Sink Configuration</Typography>
-                <Tooltip title="Copy to clipboard">
-                  <IconButton onClick={() => {
-                    navigator.clipboard.writeText(generatedConfig.primarySink);
-                    setShowCopySuccess(true);
-                  }}>
-                    <ContentCopyIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <pre style={{ 
-                backgroundColor: '#f5f5f5', 
-                padding: '1rem', 
-                borderRadius: '4px',
-                whiteSpace: 'pre-wrap',
-                color: '#2e7d32',
-                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                fontSize: '0.9rem'
-              }}>
-                {generatedConfig.primarySink}
-              </pre>
-            </Paper>
-
-            {/* Secondary Sink Config */}
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">Secondary Sink Configuration</Typography>
-                <Tooltip title="Copy to clipboard">
-                  <IconButton onClick={() => {
-                    navigator.clipboard.writeText(generatedConfig.secondarySink);
-                    setShowCopySuccess(true);
-                  }}>
-                    <ContentCopyIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <pre style={{ 
-                backgroundColor: '#f5f5f5', 
-                padding: '1rem', 
-                borderRadius: '4px',
-                whiteSpace: 'pre-wrap',
-                color: '#2e7d32',
-                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                fontSize: '0.9rem'
-              }}>
-                {generatedConfig.secondarySink}
-              </pre>
-            </Paper>
-          </>
-        )}
-
-        <Snackbar
-          open={showCopySuccess}
-          autoHideDuration={3000}
-          onClose={() => setShowCopySuccess(false)}
-        >
-          <Alert severity="success" sx={{ width: '100%' }}>
-            Configuration copied to clipboard!
-          </Alert>
-        </Snackbar>
       </Box>
+
+      <Snackbar
+        open={showCopySuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowCopySuccess(false)}
+      >
+        <Alert severity="success" sx={{ width: '100%' }}>
+          Configuration copied to clipboard!
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
