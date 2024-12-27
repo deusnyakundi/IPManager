@@ -19,6 +19,8 @@ const PseudowireGenerator = () => {
   const [selectedSites, setSelectedSites] = useState({
     oltSite: null,
     sourceNE: null,
+    primaryBNG: null,
+    secondaryBNG: null,
     primarySwitch: null,
     secondarySwitch: null,
     primarySink: null,
@@ -40,6 +42,8 @@ const PseudowireGenerator = () => {
     const {
       oltSite,
       sourceNE,
+      primaryBNG,
+      secondaryBNG,
       primarySwitch,
       secondarySwitch,
       primarySink,
@@ -73,17 +77,28 @@ mpls l2vpn reroute delay 300 resume 10`;
     const primarySwitchConfig = primarySwitch ? `mpls switch-l2vc ${sourceNE.ipAddress} ${oltSite.primary_vcid} tunnel-policy IPRAN between ${primarySink.ipAddress} ${oltSite.primary_vcid} tunnel-policy IPRAN encapsulation vlan` : null;
 
     // Secondary Switch Config (updated)
-    const secondarySwitchConfig = secondarySwitch ? `mpls switch-l2vc ${sourceNE.ipAddress} ${oltSite.secondary_vcid} tunnel-policy IPRAN between ${secondarySink.ipAddress} ${oltSite.primary_vcid} tunnel-policy IPRAN encapsulation vlan` : null;
+    const secondarySwitchConfig = secondarySwitch ? `mpls switch-l2vc ${sourceNE.ipAddress} ${oltSite.secondary_vcid} tunnel-policy IPRAN between ${secondarySink.ipAddress} ${oltSite.secondary_vcid} tunnel-policy IPRAN encapsulation vlan` : null;
 
-    // Primary Sink Config
-    const primarySinkConfig = `vlan-type dot1q ${oltSite.management_vlan}
-description FOR_${oltSite.site_name}
-statistic enable`;
+    // Primary Sink Config (updated)
+    const primarySinkConfig = `vsi ${oltSite.site_name}
+pwsignal ldp
+  vsi-id ${oltSite.vsi_id}
+  mac-withdraw enable
+  peer ${primarySwitch ? primarySwitch.ipAddress : sourceNE.ipAddress} negotiation-vc-id ${oltSite.primary_vcid} tnl-policy IPRAN upe
+  peer ${primarySwitch ? primarySwitch.ipAddress : sourceNE.ipAddress} negotiation-vc-id ${oltSite.primary_vcid} pw Track
+   track hub-pw
+  peer ${primaryBNG.ipAddress}`;
 
-    // Secondary Sink Config
-    const secondarySinkConfig = `vlan-type dot1q ${oltSite.management_vlan}
-description FOR_${oltSite.site_name}
-statistic enable`;
+    // Secondary Sink Config (updated)
+    const secondarySinkConfig = `vsi ${oltSite.site_name}
+pwsignal ldp
+  vsi-id ${oltSite.vsi_id}
+  mac-withdraw enable
+  peer ${secondarySwitch ? secondarySwitch.ipAddress : sourceNE.ipAddress} negotiation-vc-id ${oltSite.secondary_vcid} tnl-policy IPRAN upe
+  peer ${secondarySwitch ? secondarySwitch.ipAddress : sourceNE.ipAddress} negotiation-vc-id ${oltSite.secondary_vcid} pw Track
+   track hub-pw
+  peer ${primaryBNG.ipAddress}
+  peer ${secondaryBNG.ipAddress}`;
 
     setGeneratedConfig({
       source: sourceConfig,
@@ -108,7 +123,7 @@ statistic enable`;
         
         <Paper sx={{ p: 3, mb: 3 }}>
           <Grid container spacing={2}>
-            {/* First row */}
+            {/* First row - OLT and Source NE */}
             <Grid item xs={12} md={6}>
               <SearchableSiteSelect
                 label="OLT Site *"
@@ -123,7 +138,7 @@ statistic enable`;
               />
             </Grid>
 
-            {/* Second row */}
+            {/* Second row - Switching Nodes */}
             <Grid item xs={12} md={6}>
               <SearchableSiteSelect
                 label="Primary Switching Node"
@@ -139,7 +154,7 @@ statistic enable`;
               />
             </Grid>
 
-            {/* Third row */}
+            {/* Third row - Sink Nodes */}
             <Grid item xs={12} md={6}>
               <SearchableSiteSelect
                 label="Primary Sink *"
@@ -153,12 +168,28 @@ statistic enable`;
               />
             </Grid>
 
+            {/* Fourth row - BNG Nodes */}
+            <Grid item xs={12} md={6}>
+              <SearchableSiteSelect
+                label="Primary BNG *"
+                onSelect={(site) => handleSiteSelect('primaryBNG', site)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <SearchableSiteSelect
+                label="Secondary BNG *"
+                onSelect={(site) => handleSiteSelect('secondaryBNG', site)}
+              />
+            </Grid>
+
             {/* Button row */}
             <Grid item xs={12} sx={{ mt: 2 }}>
               <Button 
                 variant="contained" 
                 onClick={generateConfig}
-                disabled={!selectedSites.oltSite || !selectedSites.sourceNE || !selectedSites.primarySink || !selectedSites.secondarySink}
+                disabled={!selectedSites.oltSite || !selectedSites.sourceNE || 
+                         !selectedSites.primaryBNG || !selectedSites.secondaryBNG ||
+                         !selectedSites.primarySink || !selectedSites.secondarySink}
                 fullWidth
               >
                 Generate Config
