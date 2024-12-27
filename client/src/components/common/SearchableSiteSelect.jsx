@@ -8,52 +8,72 @@ import {
   ClickAwayListener
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import api from '../../utils/api';
 
 const SearchableSiteSelect = ({
-  sites = [],
-  value,
-  onChange,
-  loading = false,
-  error = null,
-  label = "Select Site",
-  required = false
+  label,
+  onSelect,
+  optional = false,
+  filterOLTs = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
+  const [sites, setSites] = useState([]);
+  const [selectedSite, setSelectedSite] = useState(null);
 
-  // Close dropdown when clicking outside
   const handleClickAway = () => {
     setIsOpen(false);
   };
 
-  // Filter sites based on search term
+  useEffect(() => {
+    fetchSites();
+  }, [filterOLTs]);
+
+  const fetchSites = async () => {
+    try {
+      setLoading(true);
+      let endpoint = '/sites';
+      if (filterOLTs) {
+        endpoint = '/config/all-assignments';
+      }
+      const response = await api.get(endpoint);
+      setSites(response.data);
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredSites = sites.filter(site => {
     if (!searchTerm) return true;
-    return site.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchField = filterOLTs ? site.site_name : site.name;
+    return searchField.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // Handle site selection
   const handleSelect = (site) => {
-    onChange(site);
+    setSelectedSite(site);
+    onSelect(site);
     setIsOpen(false);
     setSearchTerm('');
   };
 
-  // Display value in input with both Region and MSP
-  const displayValue = value 
-    ? `${value.name} ${value.region?.name ? `(${value.region.name})` : ''} ${value.msp?.name ? `(${value.msp.name})` : ''}`
+  const displayValue = selectedSite 
+    ? filterOLTs 
+      ? selectedSite.site_name
+      : `${selectedSite.name} ${selectedSite.region?.name ? `(${selectedSite.region.name})` : ''} ${selectedSite.msp?.name ? `(${selectedSite.msp.name})` : ''}`
     : '';
 
   return (
     <ClickAwayListener onClickAway={handleClickAway}>
-      <Box sx={{ position: 'relative', width: '100%',  }}>
+      <Box sx={{ position: 'relative', width: '100%' }}>
         <TextField
           ref={inputRef}
           fullWidth
-          required={required}
-          error={!!error}
-          helperText={error}
+          required={!optional}
+          label={label}
           placeholder={label}
           value={isOpen ? searchTerm : displayValue}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -62,8 +82,8 @@ const SearchableSiteSelect = ({
             startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
             endAdornment: loading && <CircularProgress size={20} />,
             sx: { 
-              height: '32px',
-              minHeight: '32px',
+              height: '40px',
+              minHeight: '40px',
               fontSize: '0.875rem',
             }
           }}
@@ -72,28 +92,24 @@ const SearchableSiteSelect = ({
         {isOpen && (
           <Paper
             sx={{
-              position: 'fixed',
-              top: '200px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '80%',
-              maxWidth: '800px',
-              height: 'calc(100vh - 250px)',
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              maxHeight: '300px',
               overflow: 'auto',
+              mt: 1,
               zIndex: 1500,
               boxShadow: 3,
-              '& .MuiBox-root': {
-                py: 1,
-                px: 2,
-              }
             }}
           >
             {filteredSites.length > 0 ? (
               filteredSites.map((site) => (
                 <Box
-                  key={site.id}
+                  key={filterOLTs ? site.id : site.id}
                   onClick={() => handleSelect(site)}
                   sx={{
+                    p: 1.5,
                     cursor: 'pointer',
                     '&:hover': {
                       backgroundColor: 'action.hover'
@@ -101,14 +117,16 @@ const SearchableSiteSelect = ({
                   }}
                 >
                   <Typography variant="body2">
-                    {site.name} 
-                    {site.region?.name && ` (${site.region.name})`}
-                    {site.msp?.name && ` (${site.msp.name})`}
+                    {filterOLTs ? (
+                      `${site.site_name} - ${site.ipAddress}`
+                    ) : (
+                      `${site.name} ${site.region?.name ? `(${site.region.name})` : ''} ${site.msp?.name ? `(${site.msp.name})` : ''} - ${site.ipAddress}`
+                    )}
                   </Typography>
                 </Box>
               ))
             ) : (
-              <Box sx={{ p: 1 }}>
+              <Box sx={{ p: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   No sites found
                 </Typography>

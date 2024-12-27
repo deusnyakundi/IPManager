@@ -14,6 +14,7 @@ import ConfigurationGenerator from '../components/config/ConfigurationGenerator'
 import NetworkSettings from '../components/admin/NetworkSettings';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
 import ManageMSPs from '../components/admin/ManageMSPs';
+import PseudowireGenerator from '../components/config/PseudowireGenerator';
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ const AppRoutes = () => {
       <Route path="/config-generator" element={user?.role === 'admin' ? <ConfigurationGenerator/> : <Navigate to="/" replace />} />
       <Route path="/infra-manager" element={user?.role === 'admin' ? <InfrastructureManager/> : <Navigate to="/" replace />} />
       <Route path="/sites" element={user?.role === 'admin' ? <SitesManagement/> : <Navigate to="/" replace />} />
+      <Route path="/pseudowire-generator" element={user?.role === 'admin' ? <PseudowireGenerator /> : <Navigate to="/" replace />} />
 
       
     </Routes>
