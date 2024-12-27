@@ -95,32 +95,107 @@ const ManageVLANRanges = () => {
   };
 
   return (
-    <Container maxWidth="xl" disableGutters>
-      <Box sx={{ mb: 0.5, minWidth: 'min-content' }}>
-        <Paper elevation={0} sx={{ p: 1, backgroundColor: 'background.paper', borderBottom: 1, borderColor: 'divider', borderRadius: 0 }}>
-          <Grid container justifyContent="space-between" alignItems="center" spacing={0}>
+    <Container 
+      maxWidth="xl"
+      disableGutters
+      sx={{ 
+        height: '100vh',
+        minWidth: 0,
+        overflow: 'auto',
+        backgroundColor: 'background.paper', 
+      }}
+    >
+      <Box sx={{ 
+        mb: 0.5,
+        minWidth: 'min-content',
+      }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1, 
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
+        >
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={0}
+            sx={{ 
+              minHeight: '32px',
+              py: 0,
+              m: 0,
+              '& .MuiGrid-item': {
+                p: 0,
+                m: 0
+              }
+            }}
+          >
             <Grid item>
-              <Typography variant="h4" sx={{ fontSize: '1.25rem' }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
                 Manage VLAN Ranges
               </Typography>
             </Grid>
             <Grid item>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                alignItems: 'center',
+                height: '32px'
+              }}>
                 <TextField
                   size="small"
                   value={startVLAN}
                   onChange={(e) => setStartVLAN(e.target.value)}
                   placeholder="Start VLAN"
-                  sx={{ width: '100px' }}
+                  sx={{ 
+                    width: '100px',
+                    '& .MuiOutlinedInput-root': {
+                      height: '32px',
+                      '& .MuiOutlinedInput-input': {
+                        padding: '2px 14px',
+                      }
+                    }
+                  }}
                 />
                 <TextField
                   size="small"
                   value={endVLAN}
                   onChange={(e) => setEndVLAN(e.target.value)}
                   placeholder="End VLAN"
-                  sx={{ width: '100px' }}
+                  sx={{ 
+                    width: '100px',
+                    '& .MuiOutlinedInput-root': {
+                      height: '32px',
+                      '& .MuiOutlinedInput-input': {
+                        padding: '2px 14px',
+                      }
+                    }
+                  }}
                 />
-                <FormControl size="small" sx={{ width: '200px' }}>
+                <FormControl 
+                  size="small" 
+                  sx={{ 
+                    width: '200px',
+                    '& .MuiOutlinedInput-root': {
+                      height: '32px',
+                      '& .MuiSelect-select': {
+                        padding: '2px 14px',
+                      }
+                    }
+                  }}
+                >
                   <Select
                     value={selectedCluster}
                     onChange={(e) => setSelectedCluster(e.target.value)}
@@ -138,6 +213,11 @@ const ManageVLANRanges = () => {
                   variant="contained"
                   onClick={handleAddRange}
                   size="small"
+                  sx={{ 
+                    height: '32px',
+                    minHeight: '32px',
+                    px: 2
+                  }}
                 >
                   Add Range
                 </Button>
@@ -152,36 +232,41 @@ const ManageVLANRanges = () => {
           </Alert>
         )}
 
-        <Paper sx={{ mt: 1 }}>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Start VLAN</TableCell>
-                  <TableCell>End VLAN</TableCell>
-                  <TableCell>IPRAN Cluster</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {vlanRanges.map((range) => (
-                  <TableRow key={range.id}>
-                    <TableCell>{range.start_vlan}</TableCell>
-                    <TableCell>{range.end_vlan}</TableCell>
-                    <TableCell>{range.cluster_name}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteRange(range.id)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
+        <Paper sx={{ 
+          mt: 1,
+          borderRadius: 0,
+        }}>
+          <Box sx={{ p: 1 }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Start VLAN</TableCell>
+                    <TableCell>End VLAN</TableCell>
+                    <TableCell>IPRAN Cluster</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {vlanRanges.map((range) => (
+                    <TableRow key={range.id}>
+                      <TableCell>{range.start_vlan}</TableCell>
+                      <TableCell>{range.end_vlan}</TableCell>
+                      <TableCell>{range.cluster_name}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteRange(range.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         </Paper>
       </Box>
     </Container>

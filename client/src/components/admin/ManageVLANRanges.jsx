@@ -101,7 +101,6 @@ const ManageVLANRanges = () => {
           <Grid container justifyContent="space-between" alignItems="center" spacing={0}>
             <Grid item>
               <Typography variant="h4" sx={{ fontSize: '1.25rem' }}>
-                Manage VLAN Ranges
               </Typography>
             </Grid>
             <Grid item>
