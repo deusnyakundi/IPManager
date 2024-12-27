@@ -113,7 +113,18 @@ const SitesList = ({
           ) : '-'}
         </StyledTableCell>
         <StyledTableCell>{site.msp}</StyledTableCell>
-        <StyledTableCell>{site.ipranCluster}</StyledTableCell>
+        <StyledTableCell>
+          {site.ipranCluster ? (
+            <Chip 
+              label={site.ipranCluster}
+              size="small"
+              sx={{ 
+                backgroundColor: 'info.light',
+                color: 'info.dark',
+              }}
+            />
+          ) : '-'}
+        </StyledTableCell>
         <StyledTableCell>
           <StatusChip 
             label={site.ipAddress ? 'Active' : 'Pending'}

@@ -48,13 +48,13 @@ const SiteSubmission = () => {
       setError('Please select a site');
       return;
     }
-    console.log('Selected site:', selectedSite);
+    
     try {
       const response = await api.post('/sites/generate-ip', { 
         siteId: selectedSite.id,
-        region_id: selectedSite.regionId
+        ipran_cluster_id: selectedSite.ipranClusterId
       });
-      console.log('Response:', response.data);
+
       setGeneratedIP(response.data.ip);
       setVlan(response.data.vlan);
       setPrimaryVCID(response.data.primary_vcid);
@@ -62,9 +62,16 @@ const SiteSubmission = () => {
       setVsiId(response.data.vsi_id);
       setError('');
     } catch (error) {
-      console.log('Request failed with:', error.response?.data);
       console.error('Error generating IP:', error);
-      setError(error.response?.data?.message || 'Failed to generate IP.');
+      // Show the error message from the server
+      setError(error.response?.data?.message || 'Failed to generate IP');
+      
+      // Clear any previously generated values
+      setGeneratedIP('');
+      setVlan('');
+      setPrimaryVCID('');
+      setSecondaryVCID('');
+      setVsiId('');
     }
   };
 
@@ -131,7 +138,17 @@ const SiteSubmission = () => {
         }}>
           <Box sx={{ p: 2 }}>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mt: 2,
+                  mb: 2,
+                  width: '100%',
+                  '& .MuiAlert-message': {
+                    color: 'error.main',
+                  }
+                }}
+              >
                 {error}
               </Alert>
             )}

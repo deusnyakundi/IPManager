@@ -11,4 +11,7 @@ router.delete('/:id', siteController.deleteSite);
 // IP Generation Route
 router.post('/generate-ip', siteController.generateIPForSite);
 
+// Get Site Details Route
+router.get('/:id', siteController.getSiteById);
+
 module.exports = router;

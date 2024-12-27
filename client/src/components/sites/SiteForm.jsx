@@ -112,8 +112,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     if (!formData.region_id) {
       newErrors.region_id = 'Region is required';
     }
-    if (!formData.ipAddress || !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
-      newErrors.ipAddress = 'Valid IP address is required';
+    if (formData.ipAddress && !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
+      newErrors.ipAddress = 'Invalid IP address format';
     }
     if (!formData.msp_id) {
       newErrors.msp_id = 'MSP is required';
@@ -144,20 +144,18 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
       return;
     }
 
-    const submitData = {
-      name: formData.name,
-      ip: formData.ipAddress,
-      region_id: formData.region_id,
-      msp_id: formData.msp_id,
-      ipran_cluster_id: formData.ipran_cluster_id
-    };
-
     setLoading(true);
     try {
       if (site) {
         await onSubmit(formData);
       } else {
-        const response = await api.post('/sites', submitData);
+        const response = await api.post('/sites', {
+          name: formData.name,
+          region_id: formData.region_id,
+          msp_id: formData.msp_id,
+          ipran_cluster_id: formData.ipran_cluster_id,
+          ip: formData.ipAddress
+        });
         await onSubmit(response.data);
       }
     } catch (error) {
@@ -250,13 +248,12 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             onChange={handleChange}
             error={!!errors.ipAddress}
             helperText={errors.ipAddress}
-            required
             fullWidth
             size="small"
             InputProps={{
               startAdornment: formData.ipAddress ? (
                 <InputAdornment position="start">
-                  <Tooltip title="Format: xxx.xxx.xxx.xxx">
+                  <Tooltip title="Format: xxx.xxx.xxx.xxx (optional)">
                     <InfoIcon fontSize="small" color="action" />
                   </Tooltip>
                 </InputAdornment>

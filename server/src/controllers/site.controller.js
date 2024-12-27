@@ -1,4 +1,3 @@
-
 const pool = require('../config/db');
 const logger = require('../services/logger.service');
 
@@ -15,10 +14,14 @@ const siteController = {
           s.ip as "ipAddress",
           s.region_id as "regionId",
           r.name as "regionName",
-          s.msp,
-          s.ipran_cluster as "ipranCluster"
+          s.msp_id,
+          m.name as "mspName",
+          s.ipran_cluster_id,
+          ic.name as "ipranCluster"
         FROM sites s 
         LEFT JOIN regions r ON s.region_id = r.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
         WHERE 1=1
       `;
       
@@ -57,7 +60,9 @@ const siteController = {
           id: site.regionId,
           name: site.regionName
         } : null,
-        msp: site.msp,
+        mspId: site.msp_id,
+        msp: site.mspName,
+        ipranClusterId: site.ipran_cluster_id,
         ipranCluster: site.ipranCluster
       }));
       
@@ -70,101 +75,86 @@ const siteController = {
 
   // Create a new site
   createSite: async (req, res) => {
-    const { name, ip, region_id, msp, ipran_cluster } = req.body;
-    
-    // Sanitize the site name - remove special characters and normalize
-    const sanitizedName = name
-      .normalize('NFKD')
-      .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
-      .replace(/\s+/g, '_')         // Replace spaces with underscores
-      .trim();                      // Remove leading/trailing spaces
-
-    logger.info('Site creation attempt', {
-      originalName: name,
-      ip: ip,
-      regionId: region_id,
-      msp: msp,
-      ipranCluster: ipran_cluster,
-      requestBody: req.body,
-      timestamp: new Date()
-    });
-
+    const client = await pool.connect();
     try {
-      // For site codes (matches pattern like 12087_NE_NM3236), get the base code
-      const siteCodeMatch = sanitizedName.match(/^\d+_[A-Z]+_[A-Z]+\d+/);
-      
-      let existingSite;
-      if (siteCodeMatch) {
-        // If it's a site code, check if the base code exists
-        const siteCode = siteCodeMatch[0];
-        existingSite = await pool.query(
-          `SELECT name FROM sites WHERE name LIKE $1 || '%'`,
-          [siteCode]
-        );
+      await client.query('BEGIN');
 
-        if (existingSite.rows.length > 0) {
-          logger.warn('Duplicate site creation attempted', {
-            attemptedName: sanitizedName,
-            existingSite: existingSite.rows[0].name,
-            siteCode: siteCode,
-            timestamp: new Date()
-          });
-          return res.status(400).json({ 
-            message: `Site with code ${siteCode} already exists`
-          });
-        }
-      } else {
-        // For non-site-code names, check exact match
-        existingSite = await pool.query(
-          `SELECT name FROM sites WHERE name = $1`,
-          [sanitizedName]
-        );
+      const { 
+        name, 
+        region_id, 
+        msp_id,
+        ipran_cluster_id,
+        ip
+      } = req.body;
 
-        if (existingSite.rows.length > 0) {
-          logger.warn('Duplicate site creation attempted', {
-            attemptedName: sanitizedName,
-            existingSite: existingSite.rows[0].name,
-            timestamp: new Date()
-          });
-          return res.status(400).json({ 
-            message: `Site "${sanitizedName}" already exists`
-          });
-        }
+      // Validate required fields
+      if (!name || !region_id) {
+        throw new Error('Name and region are required');
       }
 
-      const result = await pool.query(
-        `INSERT INTO sites (name, ip, region_id, msp, ipran_cluster) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [sanitizedName, ip, region_id, msp, ipran_cluster]
+      // Check if site name already exists
+      const existingSite = await client.query(
+        'SELECT id FROM sites WHERE name = $1',
+        [name]
       );
 
-      logger.info('Site created successfully', {
-        siteName: sanitizedName,
-        siteId: result.rows[0].id,
-        msp: msp,
-        ipranCluster: ipran_cluster,
-        timestamp: new Date()
-      });
-
-      res.status(201).json(result.rows[0]);
-    } catch (error) {
-      logger.error('Error creating site', {
-        error: error.message,
-        stack: error.stack,
-        siteName: sanitizedName,
-        timestamp: new Date()
-      });
-      
-      // Improve error message for the user
-      let userMessage = 'Error creating site';
-      if (error.message.includes('violates not-null constraint')) {
-        userMessage = 'IP address is required for this operation';
+      if (existingSite.rows.length > 0) {
+        throw new Error('Site name already exists');
       }
-      
-      res.status(500).json({ 
-        message: userMessage,
+
+      // Create the site
+      const result = await client.query(
+        `INSERT INTO sites (
+          name, 
+          region_id, 
+          msp_id,
+          ipran_cluster_id,
+          ip
+        ) VALUES ($1, $2, $3, $4, $5) 
+        RETURNING *`,
+        [name, region_id, msp_id, ipran_cluster_id, ip]
+      );
+
+      // Get complete site info with related data
+      const siteResult = await client.query(`
+        SELECT 
+          s.*,
+          r.name as region_name,
+          m.name as msp_name,
+          ic.name as ipran_cluster_name
+        FROM sites s
+        LEFT JOIN regions r ON s.region_id = r.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
+        WHERE s.id = $1
+      `, [result.rows[0].id]);
+
+      await client.query('COMMIT');
+
+      const site = siteResult.rows[0];
+      res.status(201).json({
+        id: site.id,
+        name: site.name,
+        regionId: site.region_id,
+        region: site.region_name ? {
+          id: site.region_id,
+          name: site.region_name
+        } : null,
+        mspId: site.msp_id,
+        msp: site.msp_name,
+        ipranClusterId: site.ipran_cluster_id,
+        ipranCluster: site.ipran_cluster_name,
+        ipAddress: site.ip
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating site:', error);
+      res.status(400).json({ 
+        message: 'Error creating site', 
         error: error.message 
       });
+    } finally {
+      client.release();
     }
   },
 
@@ -252,7 +242,6 @@ const siteController = {
   // Generate IP for site
   generateIPForSite: async (req, res) => {
     try {
-      // Log the incoming request body
       console.log('Received request body:', req.body);
       
       const { siteId } = req.body;
@@ -260,9 +249,12 @@ const siteController = {
         return res.status(400).json({ message: 'Site ID is required' });
       }
 
-      // First get the site and its region
+      // Get site and its IPRAN cluster
       const siteResult = await pool.query(
-        'SELECT s.*, r.name as region_name FROM sites s LEFT JOIN regions r ON s.region_id = r.id WHERE s.id = $1',
+        `SELECT s.*, ic.name as cluster_name 
+         FROM sites s 
+         LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id 
+         WHERE s.id = $1`,
         [siteId]
       );
       
@@ -286,24 +278,21 @@ const siteController = {
             message: 'Maximum number of devices (2) already assigned to this site. Consider an upgrade.' 
           });
         }
-        // If we have one device, add the second one with OLT02
         oltSiteName = `${site.name}-OLT02`;
       } else {
-        // First device
         oltSiteName = `${site.name}-OLT`;
       }
 
-      // Get available IP block for the region
+      // Get available IP block for the IPRAN cluster
       const ipBlockResult = await pool.query(
         `SELECT 
           id,
           block,
-          region_id,
+          ipran_cluster_id,
           network(block::cidr) as start_ip,
           broadcast(block::cidr) as end_ip
         FROM ip_blocks 
-        WHERE region_id = $1 
-        -- Get blocks that still have available IPs
+        WHERE ipran_cluster_id = $1 
         AND EXISTS (
           WITH RECURSIVE subnet_series AS (
             SELECT host((block::inet + 0)) as ip
@@ -320,46 +309,45 @@ const siteController = {
           LIMIT 1
         )
         LIMIT 1`,
-        [site.region_id]
+        [site.ipran_cluster_id]
       );
       
-      console.log('Checking IP blocks for region:', site.region_id);
       console.log('IP Block Query Result:', ipBlockResult.rows);
       
-      // Log existing assignments in this region
       const existingAssignments = await pool.query(
         `SELECT assigned_ip, site_name 
          FROM ip_assignments 
-         WHERE region_id = $1 
+         WHERE ipran_cluster_id = $1 
          ORDER BY assigned_ip::inet`,
-        [site.region_id]
+        [site.ipran_cluster_id]
       );
-      console.log('Existing assignments in region:', existingAssignments.rows);
+      console.log('Existing assignments in cluster:', existingAssignments.rows);
       
       if (ipBlockResult.rows.length === 0) {
         return res.status(400).json({ 
-          message: `No available IP blocks for region ${site.region_id}. Please configure IP blocks first.`
+          message: `No available IP blocks for IPRAN cluster ${site.cluster_name}. Please configure IP blocks first.`
         });
       }
       
-      // Get available VLAN for the region
+      // Get available VLAN for the IPRAN cluster
       const vlanResult = await pool.query(
         `SELECT vr.* FROM vlan_ranges vr 
-         WHERE vr.region_id = $1 
+         WHERE vr.ipran_cluster_id = $1 
          AND EXISTS (
            SELECT 1 FROM generate_series(vr.start_vlan, vr.end_vlan) AS v(vlan)
            WHERE NOT EXISTS (
-             SELECT 1 FROM vlans 
-             WHERE vlan = v.vlan AND is_assigned = true
+             SELECT 1 FROM ip_assignments 
+             WHERE management_vlan = v.vlan 
+             AND ipran_cluster_id = $1
            )
            LIMIT 1
          )
          LIMIT 1`,
-        [site.region_id]
+        [site.ipran_cluster_id]
       );
       
       if (vlanResult.rows.length === 0) {
-        return res.status(400).json({ message: 'No available VLAN ranges for this region' });
+        return res.status(400).json({ message: 'No available VLAN ranges for this IPRAN cluster' });
       }
       
       // Generate next available IP from the range
@@ -392,120 +380,106 @@ const siteController = {
          LIMIT 1`,
         [ipRange.block]
       );
-      
-      console.log('Next IP Result:', nextIPResult.rows);
 
       if (!nextIPResult.rows.length) {
         return res.status(400).json({ message: 'No available /30 subnets in the IP range' });
       }
 
-      const { next_ip, network, broadcast } = nextIPResult.rows[0];
-      console.log('Allocated subnet:', {
-        network,
-        assigned_ip: next_ip,
-        broadcast,
-        mask: '/30'
-      });
+      const { next_ip } = nextIPResult.rows[0];
 
-      // Generate next available VLAN from the range
+      // Generate next available VLAN
       const vlanRange = vlanResult.rows[0];
-      console.log('Selected VLAN range:', vlanRange);
-
-      const nextVLANResult = await pool.query(
-        `SELECT v.vlan
-         FROM generate_series($1::integer, $2::integer) AS v(vlan)
-         WHERE NOT EXISTS (
-           SELECT 1 FROM vlans 
-           WHERE vlan = v.vlan AND is_assigned = true
-         )
-         LIMIT 1`,
-        [vlanRange.start_vlan, vlanRange.end_vlan]
+      const nextVLANResult = await pool.query(`
+        WITH used_vlans AS (
+          SELECT DISTINCT management_vlan 
+          FROM ip_assignments 
+          WHERE ipran_cluster_id = $1
+        )
+        SELECT v.vlan_number as vlan
+        FROM generate_series($1::integer, $2::integer) AS v(vlan_number)
+        WHERE v.vlan_number NOT IN (SELECT management_vlan FROM used_vlans)
+        ORDER BY v.vlan_number
+        LIMIT 1`,
+        [vlanRange.start_vlan, vlanRange.end_vlan, site.ipran_cluster_id]
       );
-      
-      console.log('Next VLAN Result:', nextVLANResult.rows);
 
-      if (!nextIPResult.rows.length || !nextVLANResult.rows.length) {
-        return res.status(400).json({ message: 'No available IP or VLAN in the ranges' });
+      if (!nextVLANResult.rows.length) {
+        return res.status(400).json({ message: 'No available VLAN in the ranges' });
       }
-      
-      const nextIP = nextIPResult.rows[0].next_ip;
+
       const nextVLAN = nextVLANResult.rows[0].vlan;
-      
-      // Get VCID ranges for the region
+
+      // Get VCID ranges and generate next available VCIDs
       const vcidRangeResult = await pool.query(
-        `SELECT * FROM vcid_ranges 
-         WHERE region_id = $1 
-         AND EXISTS (
-           SELECT 1 
-           FROM generate_series(start_primary_vcid, end_primary_vcid) AS p(vcid)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments 
-             WHERE primary_vcid = p.vcid
-           )
-         )
-         AND EXISTS (
-           SELECT 1 
-           FROM generate_series(start_secondary_vcid, end_secondary_vcid) AS s(vcid)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments 
-             WHERE secondary_vcid = s.vcid
-           )
-         )
-         AND EXISTS (
-           SELECT 1 
-           FROM generate_series(start_vsi_id, end_vsi_id) AS v(vsi)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments 
-             WHERE vsi_id = v.vsi
-           )
-         )
-         LIMIT 1`,
-        [site.region_id]
+        'SELECT * FROM vcid_ranges WHERE ipran_cluster_id = $1 LIMIT 1',
+        [site.ipran_cluster_id]
       );
 
       if (vcidRangeResult.rows.length === 0) {
-        return res.status(400).json({ 
-          message: 'No available VCID ranges for this region or all VCIDs are in use' 
-        });
+        return res.status(400).json({ message: 'No VCID ranges defined for this IPRAN cluster' });
       }
 
       const vcidRange = vcidRangeResult.rows[0];
 
       // Get next available VCIDs and VSI
       const [primaryVCID, secondaryVCID, vsiId] = await Promise.all([
-        pool.query(
-          `SELECT vcid FROM generate_series($1::integer, $2::integer) AS p(vcid)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments WHERE primary_vcid = p.vcid
-           ) LIMIT 1`,
-          [vcidRange.start_primary_vcid, vcidRange.end_primary_vcid]
+        pool.query(`
+          WITH used_vcids AS (
+            SELECT DISTINCT primary_vcid 
+            FROM ip_assignments 
+            WHERE ipran_cluster_id = $1
+          )
+          SELECT v.vcid
+          FROM generate_series($1::integer, $2::integer) AS v(vcid)
+          WHERE v.vcid NOT IN (SELECT primary_vcid FROM used_vcids)
+          ORDER BY v.vcid
+          LIMIT 1`,
+          [vcidRange.start_primary_vcid, vcidRange.end_primary_vcid, site.ipran_cluster_id]
         ),
-        pool.query(
-          `SELECT vcid FROM generate_series($1::integer, $2::integer) AS s(vcid)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments WHERE secondary_vcid = s.vcid
-           ) LIMIT 1`,
-          [vcidRange.start_secondary_vcid, vcidRange.end_secondary_vcid]
+        pool.query(`
+          WITH used_vcids AS (
+            SELECT DISTINCT secondary_vcid 
+            FROM ip_assignments 
+            WHERE ipran_cluster_id = $1
+          )
+          SELECT v.vcid
+          FROM generate_series($1::integer, $2::integer) AS v(vcid)
+          WHERE v.vcid NOT IN (SELECT secondary_vcid FROM used_vcids)
+          ORDER BY v.vcid
+          LIMIT 1`,
+          [vcidRange.start_secondary_vcid, vcidRange.end_secondary_vcid, site.ipran_cluster_id]
         ),
-        pool.query(
-          `SELECT vsi FROM generate_series($1::integer, $2::integer) AS v(vsi)
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ip_assignments WHERE vsi_id = v.vsi
-           ) LIMIT 1`,
-          [vcidRange.start_vsi_id, vcidRange.end_vsi_id]
+        pool.query(`
+          WITH used_vsis AS (
+            SELECT DISTINCT vsi_id 
+            FROM ip_assignments 
+            WHERE ipran_cluster_id = $1
+          )
+          SELECT v.vsi
+          FROM generate_series($1::integer, $2::integer) AS v(vsi)
+          WHERE v.vsi NOT IN (SELECT vsi_id FROM used_vsis)
+          ORDER BY v.vsi
+          LIMIT 1`,
+          [vcidRange.start_vsi_id, vcidRange.end_vsi_id, site.ipran_cluster_id]
         )
       ]);
 
-      // Create IP assignment with all generated values
+      // Create IP assignment
       await pool.query(
         `INSERT INTO ip_assignments (
-          site_name, region_id, assigned_ip, management_vlan, 
-          primary_vcid, secondary_vcid, vsi_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          site_name,
+          ipran_cluster_id,
+          assigned_ip,
+          management_vlan,
+          primary_vcid,
+          secondary_vcid,
+          vsi_id,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
         [
           oltSiteName,
-          site.region_id,
-          nextIP,
+          site.ipran_cluster_id,
+          next_ip,
           nextVLAN,
           primaryVCID.rows[0].vcid,
           secondaryVCID.rows[0].vcid,
@@ -513,22 +487,15 @@ const siteController = {
         ]
       );
 
-      // Mark VLAN as assigned
-      await pool.query(
-        `INSERT INTO vlans (vlan, region_id, is_assigned)
-         VALUES ($1, $2, true)`,
-        [nextVLAN, site.region_id]
-      );
-
       // Return all generated values
       res.json({
         site_name: oltSiteName,
-        ip: nextIP,
+        ip: next_ip,
         vlan: nextVLAN,
         primary_vcid: primaryVCID.rows[0].vcid,
         secondary_vcid: secondaryVCID.rows[0].vcid,
         vsi_id: vsiId.rows[0].vsi,
-        region: site.region_name
+        ipran_cluster: site.cluster_name
       });
 
     } catch (error) {
@@ -537,6 +504,173 @@ const siteController = {
         message: 'Error generating values',
         error: error.message 
       });
+    }
+  },
+
+  // Generate IP for site
+  generateIP: async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { 
+        site_name, 
+        ipran_cluster_id,  // Changed from region_id
+        msp_id 
+      } = req.body;
+
+      // Validate IPRAN cluster exists
+      const clusterCheck = await client.query(
+        'SELECT id FROM ipran_clusters WHERE id = $1',
+        [ipran_cluster_id]
+      );
+
+      if (clusterCheck.rows.length === 0) {
+        throw new Error('Invalid IPRAN cluster');
+      }
+
+      // Get available VLAN from the cluster's ranges
+      const vlanResult = await client.query(`
+        SELECT v.vlan
+        FROM generate_series(
+          (SELECT MIN(start_vlan) FROM vlan_ranges WHERE ipran_cluster_id = $1),
+          (SELECT MAX(end_vlan) FROM vlan_ranges WHERE ipran_cluster_id = $1)
+        ) AS s(vlan)
+        LEFT JOIN vlans v ON v.vlan = s.vlan AND v.ipran_cluster_id = $1
+        WHERE v.vlan IS NULL
+        LIMIT 1`,
+        [ipran_cluster_id]
+      );
+
+      if (vlanResult.rows.length === 0) {
+        throw new Error('No available VLANs in the selected IPRAN cluster');
+      }
+
+      const vlan = vlanResult.rows[0].vlan;
+
+      // Get available VCID from the cluster's ranges
+      const vcidResult = await client.query(`
+        SELECT s.vcid
+        FROM generate_series(
+          (SELECT MIN(start_primary_vcid) FROM vcid_ranges WHERE ipran_cluster_id = $1),
+          (SELECT MAX(end_primary_vcid) FROM vcid_ranges WHERE ipran_cluster_id = $1)
+        ) AS s(vcid)
+        LEFT JOIN sites ON sites.primary_vcid = s.vcid AND sites.ipran_cluster_id = $1
+        WHERE sites.primary_vcid IS NULL
+        LIMIT 1`,
+        [ipran_cluster_id]
+      );
+
+      if (vcidResult.rows.length === 0) {
+        throw new Error('No available VCIDs in the selected IPRAN cluster');
+      }
+
+      const primary_vcid = vcidResult.rows[0].vcid;
+
+      // Get secondary VCID
+      const secondaryVcidResult = await client.query(`
+        SELECT s.vcid
+        FROM generate_series(
+          (SELECT MIN(start_secondary_vcid) FROM vcid_ranges WHERE ipran_cluster_id = $1),
+          (SELECT MAX(end_secondary_vcid) FROM vcid_ranges WHERE ipran_cluster_id = $1)
+        ) AS s(vcid)
+        LEFT JOIN sites ON sites.secondary_vcid = s.vcid AND sites.ipran_cluster_id = $1
+        WHERE sites.secondary_vcid IS NULL
+        LIMIT 1`,
+        [ipran_cluster_id]
+      );
+
+      if (secondaryVcidResult.rows.length === 0) {
+        throw new Error('No available secondary VCIDs in the selected IPRAN cluster');
+      }
+
+      const secondary_vcid = secondaryVcidResult.rows[0].vcid;
+
+      // Get VSI ID
+      const vsiResult = await client.query(`
+        SELECT s.vsi_id
+        FROM generate_series(
+          (SELECT MIN(start_vsi_id) FROM vcid_ranges WHERE ipran_cluster_id = $1),
+          (SELECT MAX(end_vsi_id) FROM vcid_ranges WHERE ipran_cluster_id = $1)
+        ) AS s(vsi_id)
+        LEFT JOIN sites ON sites.vsi_id = s.vsi_id AND sites.ipran_cluster_id = $1
+        WHERE sites.vsi_id IS NULL
+        LIMIT 1`,
+        [ipran_cluster_id]
+      );
+
+      if (vsiResult.rows.length === 0) {
+        throw new Error('No available VSI IDs in the selected IPRAN cluster');
+      }
+
+      const vsi_id = vsiResult.rows[0].vsi_id;
+
+      // Create the site with generated values
+      const result = await client.query(
+        `INSERT INTO sites (
+          site_name,
+          ipran_cluster_id,
+          msp_id,
+          vlan,
+          primary_vcid,
+          secondary_vcid,
+          vsi_id,
+          status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending') 
+        RETURNING *`,
+        [
+          site_name,
+          ipran_cluster_id,
+          msp_id,
+          vlan,
+          primary_vcid,
+          secondary_vcid,
+          vsi_id
+        ]
+      );
+
+      // Mark the VLAN as assigned
+      await client.query(
+        'INSERT INTO vlans (vlan, ipran_cluster_id, is_assigned) VALUES ($1, $2, true)',
+        [vlan, ipran_cluster_id]
+      );
+
+      await client.query('COMMIT');
+      res.json(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error generating values:', error);
+      res.status(400).json({ 
+        message: 'Error generating values',
+        error: error.message 
+      });
+    } finally {
+      client.release();
+    }
+  },
+
+  getSiteById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(`
+        SELECT 
+          s.*,
+          ic.name as cluster_name,
+          m.name as msp_name
+        FROM sites s
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        WHERE s.id = $1
+      `, [id]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Site not found' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error getting site:', error);
+      res.status(500).json({ message: 'Error getting site details' });
     }
   }
 };

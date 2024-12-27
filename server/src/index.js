@@ -17,6 +17,7 @@ const ldapAuth = require('./middleware/ldap.middleware');
 const helmet = require('helmet');
 const loginLimiter = require('./middleware/rateLimit.middleware');
 const logger = require('./services/logger.service');
+const vlanRoutes = require('./routes/vlan.routes');
 
 dotenv.config();
 
@@ -62,6 +63,8 @@ app.use('/api/sites', siteRoutes);
 app.use('/api/vlanblock', vlanBlockRoutes);
 app.use('/api/vcid', vcidRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/vlan-ranges', vlanRoutes);
+app.use('/api/vlans', vlanRoutes);
 
 app.use((err, req, res, next) => {
   logger.error('Unhandled Error', {

@@ -24,15 +24,15 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import api from '../../utils/api';
+import api, { ipranClusterAPI } from '../../utils/api';
 
 const ManageVCIDRanges = () => {
   const [vcidRanges, setVCIDRanges] = useState([]);
-  const [regions, setRegions] = useState([]);
+  const [clusters, setClusters] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    region_id: '',
+    ipran_cluster_id: '',
     start_primary_vcid: '',
     end_primary_vcid: '',
     start_secondary_vcid: '',
@@ -44,7 +44,7 @@ const ManageVCIDRanges = () => {
   useEffect(() => {
     console.log('ManageVCIDRanges mounted');
     fetchVCIDRanges();
-    fetchRegions();
+    fetchClusters();
   }, []);
 
   const fetchVCIDRanges = async () => {
@@ -54,18 +54,16 @@ const ManageVCIDRanges = () => {
       console.log('VCID ranges response:', response.data);
       setVCIDRanges(response.data);
     } catch (error) {
-      console.log('API endpoint:', '/vcid/ranges');
-      console.log('Error response:', error.response);
-      console.error('Error details:', error.response || error);
+      console.error('Error fetching VCID ranges:', error);
     }
   };
 
-  const fetchRegions = async () => {
+  const fetchClusters = async () => {
     try {
-      const response = await api.get('/regions');
-      setRegions(response.data);
+      const response = await ipranClusterAPI.getClusters();
+      setClusters(response.data);
     } catch (error) {
-      console.error('Error fetching regions:', error);
+      console.error('Error fetching IPRAN clusters:', error);
     }
   };
 
@@ -77,7 +75,7 @@ const ManageVCIDRanges = () => {
       setOpen(false);
       fetchVCIDRanges();
       setFormData({
-        region_id: '',
+        ipran_cluster_id: '',
         start_primary_vcid: '',
         end_primary_vcid: '',
         start_secondary_vcid: '',
@@ -87,6 +85,7 @@ const ManageVCIDRanges = () => {
       });
     } catch (error) {
       console.error('Error creating VCID range:', error);
+      alert(error.response?.data?.message || 'Error creating VCID range');
     } finally {
       setLoading(false);
     }
@@ -98,6 +97,7 @@ const ManageVCIDRanges = () => {
       fetchVCIDRanges();
     } catch (error) {
       console.error('Error deleting VCID range:', error);
+      alert(error.response?.data?.message || 'Error deleting VCID range');
     }
   };
 
@@ -173,7 +173,7 @@ const ManageVCIDRanges = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Region</TableCell>
+                    <TableCell>IPRAN Cluster</TableCell>
                     <TableCell>Primary VCID Range</TableCell>
                     <TableCell>Secondary VCID Range</TableCell>
                     <TableCell>VSI ID Range</TableCell>
@@ -183,7 +183,7 @@ const ManageVCIDRanges = () => {
                 <TableBody>
                   {vcidRanges.map((range) => (
                     <TableRow key={range.id}>
-                      <TableCell>{range.region_name}</TableCell>
+                      <TableCell>{range.cluster_name}</TableCell>
                       <TableCell>{`${range.start_primary_vcid} - ${range.end_primary_vcid}`}</TableCell>
                       <TableCell>{`${range.start_secondary_vcid} - ${range.end_secondary_vcid}`}</TableCell>
                       <TableCell>{`${range.start_vsi_id} - ${range.end_vsi_id}`}</TableCell>
@@ -229,16 +229,16 @@ const ManageVCIDRanges = () => {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Region</InputLabel>
+                <InputLabel>IPRAN Cluster</InputLabel>
                 <Select
-                  value={formData.region_id}
-                  onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
-                  label="Region"
+                  value={formData.ipran_cluster_id}
+                  onChange={(e) => setFormData({ ...formData, ipran_cluster_id: e.target.value })}
+                  label="IPRAN Cluster"
                   required
                 >
-                  {regions.map((region) => (
-                    <MenuItem key={region.id} value={region.id}>
-                      {region.name}
+                  {clusters.map((cluster) => (
+                    <MenuItem key={cluster.id} value={cluster.id}>
+                      {cluster.name}
                     </MenuItem>
                   ))}
                 </Select>

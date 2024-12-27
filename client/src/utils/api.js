@@ -59,6 +59,12 @@ export const ipAPI = {
     deleteIPBlock: (id) => api.delete(`/ip/blocks/${id}`),
   };
 
+export const ipranClusterAPI = {
+  getClusters: () => api.get('/ipran-clusters'),
+  createCluster: (data) => api.post('/ipran-clusters', data),
+  deleteCluster: (id) => api.delete(`/ipran-clusters/${id}`),
+};
+
 export const regionAPI = {
   getRegions: () => api.get('/regions'),
   createRegion: (name) => api.post('/regions', { name }),
@@ -80,15 +86,15 @@ export const userAPI = {
 
 // Define the VLAN API functions
 export const vlanAPI = {
-  getVLANs: () => api.get('/vlans'),
-  createVLAN: (data) => api.post('/vlans', data),
-  deleteVLAN: (id) => api.delete(`/vlans/${id}`),
+  getVLANRanges: () => api.get('/vlans/ranges'),
+  createVLANRange: (data) => api.post('/vlans/ranges', data),
+  deleteVLANRange: (id) => api.delete(`/vlans/ranges/${id}`),
 };
 
 export const vlanRangeAPI = {
-  getVLANRanges: () => api.get('/vlan-ranges'),
-  createVLANRange: (data) => api.post('/vlan-ranges', data),
-  deleteVLANRange: (id) => api.delete(`/vlan-ranges/${id}`),
+  getVLANRanges: () => api.get('/vlan-ranges/ranges'),
+  createVLANRange: (data) => api.post('/vlan-ranges/ranges', data),
+  deleteVLANRange: (id) => api.delete(`/vlan-ranges/ranges/${id}`),
 };
 
 // Define the Site API functions

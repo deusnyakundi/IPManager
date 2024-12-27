@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ipAPI, regionAPI } from '../../utils/api';
 import {
-  Container,
-  Grid,
-  Paper,
-  Typography,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
   Box,
-  Alert,
+  Typography,
+  Button,
+  TextField,
+  Paper,
   TableContainer,
   Table,
   TableHead,
@@ -20,21 +12,28 @@ import {
   TableRow,
   TableCell,
   IconButton,
+  Grid,
+  FormControl,
+  Select,
+  MenuItem,
+  Alert,
+  Container
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Delete as DeleteIcon } from '@mui/icons-material';
+import { ipAPI, ipranClusterAPI } from '../../utils/api';
 import IPInput from '../common/IPInput';
 
 const ManageIPBlocks = () => {
   const [ipBlocks, setIPBlocks] = useState([]);
-  const [regions, setRegions] = useState([]);
+  const [clusters, setClusters] = useState([]);
   const [newBlock, setNewBlock] = useState('');
   const [cidr, setCidr] = useState('24'); // Default CIDR value
-  const [selectedRegion, setSelectedRegion] = useState('');
+  const [selectedCluster, setSelectedCluster] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchIPBlocks();
-    fetchRegions();
+    fetchClusters();
   }, []);
 
   const fetchIPBlocks = async () => {
@@ -49,12 +48,13 @@ const ManageIPBlocks = () => {
     }
   };
 
-  const fetchRegions = async () => {
+  const fetchClusters = async () => {
     try {
-      const response = await regionAPI.getRegions();
-      setRegions(response.data);
+      const response = await ipranClusterAPI.getClusters();
+      setClusters(response.data);
     } catch (error) {
-      console.error('Error fetching regions:', error);
+      console.error('Error fetching clusters:', error);
+      setError('Failed to fetch IPRAN clusters');
     }
   };
 
@@ -64,8 +64,8 @@ const ManageIPBlocks = () => {
   };
 
   const handleAddBlock = async () => {
-    if (!newBlock || !selectedRegion || !cidr) {
-      setError('Please enter a valid IP block, CIDR, and select a region.');
+    if (!newBlock || !selectedCluster || !cidr) {
+      setError('Please enter a valid IP block, CIDR, and select an IPRAN cluster.');
       return;
     }
     if (!validateIP(newBlock)) {
@@ -74,14 +74,23 @@ const ManageIPBlocks = () => {
     }
     try {
       const blockWithCidr = `${newBlock}/${cidr}`;
-      await ipAPI.createIPBlock({ block: blockWithCidr, regionId: selectedRegion });
+      console.log('Adding block with data:', { 
+        block: blockWithCidr, 
+        ipranClusterId: selectedCluster 
+      });
+      const response = await ipAPI.createIPBlock({ 
+        block: blockWithCidr, 
+        ipranClusterId: selectedCluster 
+      });
+      console.log('Add block response:', response.data);
       setNewBlock('');
       setCidr('24'); // Reset CIDR to default
-      setSelectedRegion('');
+      setSelectedCluster('');
       setError('');
       fetchIPBlocks();
     } catch (error) {
       console.error('Error adding IP block:', error);
+      setError(error.response?.data?.message || 'Error adding IP block');
     }
   };
 
@@ -91,65 +100,28 @@ const ManageIPBlocks = () => {
       fetchIPBlocks();
     } catch (error) {
       console.error('Error deleting IP block:', error);
+      setError(error.response?.data?.message || 'Error deleting IP block');
     }
   };
 
   return (
-    <Container 
-      maxWidth="xl"
-      disableGutters
-      sx={{ 
-        height: '100vh',
-        minWidth: 0,
-        overflow: 'auto',
-        backgroundColor: 'background.paper', 
-      }}
-    >
-      <Box sx={{ 
-        mb: 0.5,
-        minWidth: 'min-content',
-      }}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 1, 
-            backgroundColor: 'background.paper',
-            borderBottom: 1,
-            borderColor: 'divider',
-            borderRadius: 0,
-          }}
-        >
-          <Grid 
-            container 
-            justifyContent="space-between" 
-            alignItems="center" 
-            spacing={0}
-            sx={{ 
-              minHeight: '32px',
-              py: 0,
-              m: 0
-            }}
-          >
+    <Container maxWidth="xl" disableGutters sx={{ height: '100vh', minWidth: 0, overflow: 'auto', backgroundColor: 'background.paper' }}>
+      <Box sx={{ mb: 0.5, minWidth: 'min-content' }}>
+        <Paper elevation={0} sx={{ 
+          p: 1, 
+          backgroundColor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider',
+          borderRadius: 0,
+        }}>
+          <Grid container justifyContent="space-between" alignItems="center" spacing={0} sx={{ minHeight: '32px', py: 0, m: 0 }}>
             <Grid item>
-              <Typography 
-                variant="h4" 
-                sx={{ 
-                  fontSize: '1.25rem',
-                  lineHeight: 1,
-                  m: 0,
-                  color: 'text.primary',
-                }}
-              >
+              <Typography variant="h4" sx={{ fontSize: '1.25rem', lineHeight: 1, m: 0, color: 'text.primary' }}>
                 Manage IP Blocks
               </Typography>
             </Grid>
             <Grid item>
-              <Box sx={{ 
-                display: 'flex', 
-                gap: 1, 
-                alignItems: 'center',
-                height: '32px'
-              }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '32px' }}>
                 <Box sx={{ 
                   '& .MuiInputBase-root': { 
                     height: '32px',
@@ -179,31 +151,30 @@ const ManageIPBlocks = () => {
                   inputProps={{ maxLength: 2 }}
                 />
                 <FormControl size="small" sx={{ width: '200px' }}>
-                  <InputLabel>Region</InputLabel>
                   <Select
-                    value={selectedRegion}
-                    onChange={(e) => setSelectedRegion(e.target.value)}
-                    label="Region"
+                    value={selectedCluster}
+                    onChange={(e) => setSelectedCluster(e.target.value)}
+                    displayEmpty
                     sx={{ 
                       height: '32px',
-                      minHeight: '32px'
+                      '& .MuiSelect-select': {
+                        padding: '2px 14px',
+                      },
                     }}
                   >
-                    {regions.map((region) => (
-                      <MenuItem key={region.id} value={region.id}>
-                        {region.name}
+                    <MenuItem value="" disabled>Select IPRAN Cluster</MenuItem>
+                    {clusters.map((cluster) => (
+                      <MenuItem key={cluster.id} value={cluster.id}>
+                        {cluster.name}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={handleAddBlock}
                   size="small"
-                  sx={{ 
-                    height: '32px',
-                    minHeight: '32px'
-                  }}
+                  sx={{ height: '32px' }}
                 >
                   Add Block
                 </Button>
@@ -212,53 +183,40 @@ const ManageIPBlocks = () => {
           </Grid>
         </Paper>
 
-        <Paper sx={{ 
-          mt: 1,
-          borderRadius: 0,
-        }}>
-          <Box sx={{ p: 1 }}>
-            {error && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 1,
-                  '& .MuiAlert-message': {
-                    color: 'error.main',
-                  }
-                }}
-              >
-                {error}
-              </Alert>
-            )}
-            
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Block</TableCell>
-                    <TableCell>Region</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+        {error && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Paper sx={{ mt: 1, borderRadius: 0 }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>IP Block</TableCell>
+                  <TableCell>IPRAN Cluster</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {ipBlocks.map((block) => (
+                  <TableRow key={block.id}>
+                    <TableCell>{block.block}</TableCell>
+                    <TableCell>{block.cluster_name || 'Not assigned'}</TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteBlock(block.id)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {ipBlocks.map((block) => (
-                    <TableRow key={block.id}>
-                      <TableCell>{block.block}</TableCell>
-                      <TableCell>{block.regionname}</TableCell>
-                      <TableCell align="right">
-                        <IconButton 
-                          size="small"
-                          onClick={() => handleDeleteBlock(block.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Paper>
       </Box>
     </Container>
