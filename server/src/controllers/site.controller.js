@@ -390,21 +390,38 @@ const siteController = {
       // Generate next available VLAN
       const vlanRange = vlanResult.rows[0];
       const nextVLANResult = await pool.query(`
-        WITH used_vlans AS (
-          SELECT DISTINCT management_vlan 
-          FROM ip_assignments 
+        WITH cluster_range AS (
+          -- Get the valid range for this cluster
+          SELECT 
+            start_vlan,
+            end_vlan
+          FROM vlan_ranges 
           WHERE ipran_cluster_id = $1
+        ),
+        used_vlans AS (
+          -- Get ALL used VLANs across ALL clusters for global uniqueness
+          SELECT DISTINCT management_vlan 
+          FROM ip_assignments
+        ),
+        available_vlans AS (
+          -- Generate series within cluster's range
+          SELECT v.vlan_number
+          FROM cluster_range cr,
+               generate_series(cr.start_vlan, cr.end_vlan) AS v(vlan_number)
+          -- Exclude globally used VLANs
+          WHERE v.vlan_number NOT IN (SELECT management_vlan FROM used_vlans)
         )
-        SELECT v.vlan_number as vlan
-        FROM generate_series($1::integer, $2::integer) AS v(vlan_number)
-        WHERE v.vlan_number NOT IN (SELECT management_vlan FROM used_vlans)
-        ORDER BY v.vlan_number
+        SELECT vlan_number as vlan
+        FROM available_vlans
+        ORDER BY vlan_number
         LIMIT 1`,
-        [vlanRange.start_vlan, vlanRange.end_vlan, site.ipran_cluster_id]
+        [site.ipran_cluster_id]
       );
 
       if (!nextVLANResult.rows.length) {
-        return res.status(400).json({ message: 'No available VLAN in the ranges' });
+        return res.status(400).json({ 
+          message: 'No available VLANs in the assigned range for this IPRAN cluster' 
+        });
       }
 
       const nextVLAN = nextVLANResult.rows[0].vlan;
@@ -424,43 +441,79 @@ const siteController = {
       // Get next available VCIDs and VSI
       const [primaryVCID, secondaryVCID, vsiId] = await Promise.all([
         pool.query(`
-          WITH used_vcids AS (
+          WITH cluster_range AS (
+            SELECT 
+              start_primary_vcid,
+              end_primary_vcid
+            FROM vcid_ranges 
+            WHERE ipran_cluster_id = $1
+          ),
+          used_vcids AS (
+            -- Get ALL used VCIDs across ALL clusters
             SELECT DISTINCT primary_vcid 
             FROM ip_assignments 
-            WHERE ipran_cluster_id = $1
-          )
+          ),
+          available_vcids AS (
           SELECT v.vcid
-          FROM generate_series($1::integer, $2::integer) AS v(vcid)
+            FROM cluster_range cr,
+                 generate_series(cr.start_primary_vcid, cr.end_primary_vcid) AS v(vcid)
           WHERE v.vcid NOT IN (SELECT primary_vcid FROM used_vcids)
-          ORDER BY v.vcid
+          )
+          SELECT vcid
+          FROM available_vcids
+          ORDER BY vcid
           LIMIT 1`,
-          [vcidRange.start_primary_vcid, vcidRange.end_primary_vcid, site.ipran_cluster_id]
+          [site.ipran_cluster_id]
         ),
         pool.query(`
-          WITH used_vcids AS (
+          WITH cluster_range AS (
+            SELECT 
+              start_secondary_vcid,
+              end_secondary_vcid
+            FROM vcid_ranges 
+            WHERE ipran_cluster_id = $1
+          ),
+          used_vcids AS (
+            -- Get ALL used secondary VCIDs across ALL clusters
             SELECT DISTINCT secondary_vcid 
             FROM ip_assignments 
-            WHERE ipran_cluster_id = $1
-          )
+          ),
+          available_vcids AS (
           SELECT v.vcid
-          FROM generate_series($1::integer, $2::integer) AS v(vcid)
+            FROM cluster_range cr,
+                 generate_series(cr.start_secondary_vcid, cr.end_secondary_vcid) AS v(vcid)
           WHERE v.vcid NOT IN (SELECT secondary_vcid FROM used_vcids)
-          ORDER BY v.vcid
+          )
+          SELECT vcid
+          FROM available_vcids
+          ORDER BY vcid
           LIMIT 1`,
-          [vcidRange.start_secondary_vcid, vcidRange.end_secondary_vcid, site.ipran_cluster_id]
+          [site.ipran_cluster_id]
         ),
         pool.query(`
-          WITH used_vsis AS (
+          WITH cluster_range AS (
+            SELECT 
+              start_vsi_id,
+              end_vsi_id
+            FROM vcid_ranges 
+            WHERE ipran_cluster_id = $1
+          ),
+          used_vsis AS (
+            -- Get ALL used VSI IDs across ALL clusters
             SELECT DISTINCT vsi_id 
             FROM ip_assignments 
-            WHERE ipran_cluster_id = $1
-          )
+          ),
+          available_vsis AS (
           SELECT v.vsi
-          FROM generate_series($1::integer, $2::integer) AS v(vsi)
+            FROM cluster_range cr,
+                 generate_series(cr.start_vsi_id, cr.end_vsi_id) AS v(vsi)
           WHERE v.vsi NOT IN (SELECT vsi_id FROM used_vsis)
-          ORDER BY v.vsi
+          )
+          SELECT vsi
+          FROM available_vsis
+          ORDER BY vsi
           LIMIT 1`,
-          [vcidRange.start_vsi_id, vcidRange.end_vsi_id, site.ipran_cluster_id]
+          [site.ipran_cluster_id]
         )
       ]);
 
