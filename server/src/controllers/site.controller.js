@@ -163,22 +163,86 @@ const siteController = {
 
   // Update a site
   updateSite: async (req, res) => {
-    const { id } = req.params;
-    const { name, ipAddress, region_id, msp, ipran_cluster } = req.body;
+    const client = await pool.connect();
     try {
-      const result = await pool.query(
-        `UPDATE sites 
-         SET name = $1, ip = $2, region_id = $3, msp = $4, ipran_cluster = $5 
-         WHERE id = $6 RETURNING *`,
-        [name, ipAddress, region_id, msp, ipran_cluster, id]
+      await client.query('BEGIN');
+
+      const { id } = req.params;
+      const { 
+        name, 
+        ipAddress, 
+        region_id, 
+        msp_id, 
+        ipran_cluster_id 
+      } = req.body;
+
+      // First check if site exists
+      const siteCheck = await client.query(
+        'SELECT id FROM sites WHERE id = $1',
+        [id]
       );
-      if (result.rows.length === 0) {
-        return res.status(404).json({ message: 'Site not found' });
+
+      if (siteCheck.rows.length === 0) {
+        throw new Error('Site not found');
       }
-      res.json(result.rows[0]);
+
+      // Update the site
+      const result = await client.query(
+        `UPDATE sites 
+         SET name = $1, 
+             ip = $2, 
+             region_id = $3, 
+             msp_id = $4, 
+             ipran_cluster_id = $5
+         WHERE id = $6 
+         RETURNING *`,
+        [name, ipAddress, region_id, msp_id, ipran_cluster_id, id]
+      );
+
+      // Get complete site info with related data
+      const siteResult = await client.query(`
+        SELECT 
+          s.*,
+          r.name as region_name,
+          m.name as msp_name,
+          ic.name as ipran_cluster_name
+        FROM sites s
+        LEFT JOIN regions r ON s.region_id = r.id
+        LEFT JOIN msps m ON s.msp_id = m.id
+        LEFT JOIN ipran_clusters ic ON s.ipran_cluster_id = ic.id
+        WHERE s.id = $1
+      `, [result.rows[0].id]);
+
+      await client.query('COMMIT');
+
+      const site = siteResult.rows[0];
+      res.json({
+        id: site.id,
+        name: site.name,
+        ipAddress: site.ip,
+        regionId: site.region_id,
+        region: site.region_name ? {
+          id: site.region_id,
+          name: site.region_name
+        } : null,
+        mspId: site.msp_id,
+        msp: site.msp_name ? {
+          id: site.msp_id,
+          name: site.msp_name
+        } : null,
+        ipranClusterId: site.ipran_cluster_id,
+        ipranCluster: site.ipran_cluster_name
+      });
+
     } catch (error) {
+      await client.query('ROLLBACK');
       console.error('Error updating site:', error);
-      res.status(500).json({ message: 'Error updating site' });
+      res.status(500).json({ 
+        message: 'Error updating site',
+        error: error.message 
+      });
+    } finally {
+      client.release();
     }
   },
 
