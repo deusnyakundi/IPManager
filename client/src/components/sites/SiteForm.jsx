@@ -146,18 +146,14 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
 
     setLoading(true);
     try {
-      if (site) {
-        await onSubmit(formData);
-      } else {
-        const response = await api.post('/sites', {
-          name: formData.name,
-          region_id: formData.region_id,
-          msp_id: formData.msp_id,
-          ipran_cluster_id: formData.ipran_cluster_id,
-          ip: formData.ipAddress
-        });
-        await onSubmit(response.data);
-      }
+      await onSubmit({
+        name: formData.name,
+        region_id: formData.region_id,
+        msp_id: formData.msp_id,
+        ipran_cluster_id: formData.ipran_cluster_id,
+        ip: formData.ipAddress
+      });
+      onClose();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to create site';
       setSubmitError(errorMessage);
@@ -165,8 +161,6 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     } finally {
       setLoading(false);
     }
-
-    onClose();
   };
 
   return (

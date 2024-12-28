@@ -51,52 +51,17 @@ const createActivityLog = async (logData) => {
 };
 
 const activityLogger = (req, res, next) => {
-  const originalSend = res.send;
+  // Add a flag to track if we've logged this request
+  let hasLogged = false;
+  
   const originalJson = res.json;
-  const originalEnd = res.end;
+  const originalSend = res.send;
 
-  let responseBody = null;
-
-  // Capture json responses
+  // Only override json as that's what our API uses
   res.json = function (body) {
-    responseBody = body;
-    return originalJson.call(this, body);
-  };
-
-  // Capture regular responses
-  res.send = function (body) {
-    responseBody = body;
-    return originalSend.call(this, body);
-  };
-
-  // Intercept the response before it's sent
-  res.end = async function (chunk) {
-    if (chunk) {
-      responseBody = chunk;
-    }
-
-    // Try to parse response body if it's a string
-    let parsedBody = responseBody;
-    if (typeof responseBody === 'string') {
+    if (!hasLogged && (req.method !== 'GET' || res.statusCode >= 400)) {
       try {
-        parsedBody = JSON.parse(responseBody);
-      } catch (e) {
-        // Not JSON, use as is
-      }
-    }
-
-    // Don't log GET requests unless they fail
-    if (req.method !== 'GET' || res.statusCode >= 400) {
-      console.log('Creating activity log for:', {
-        method: req.method,
-        path: req.path,
-        statusCode: res.statusCode,
-        body: req.body,
-        response: parsedBody
-      });
-
-      try {
-        await createActivityLog({
+        createActivityLog({
           user_id: req.user?.id,
           action_type: getActionType(req.method),
           entity_type: getEntityType(req.path),
@@ -109,16 +74,21 @@ const activityLogger = (req, res, next) => {
           additional_details: {
             route: req.path,
             query_params: req.query,
-            response: parsedBody,
+            response: body,
             statusCode: res.statusCode
           }
         });
+        hasLogged = true;
       } catch (error) {
         console.error('Failed to create activity log:', error);
       }
     }
+    return originalJson.call(this, body);
+  };
 
-    originalEnd.call(this, chunk);
+  // Keep send as fallback but don't log from it
+  res.send = function (body) {
+    return originalSend.call(this, body);
   };
 
   next();
