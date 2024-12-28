@@ -55,7 +55,13 @@ const SitesList = ({
   loading, 
   onEdit, 
   onDelete,
-  onGenerateIP 
+  onGenerateIP,
+  // Missing pagination props
+  // page,
+  // rowsPerPage,
+  // onPageChange,
+  // onRowsPerPageChange,
+  // totalCount 
 }) => {
   const renderTableContent = () => {
     if (loading) {

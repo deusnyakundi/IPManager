@@ -3,13 +3,19 @@ const config = require('../config/ldap.config');
 
 class LDAPService {
   constructor() {
-    this.client = ldap.createClient({
-      url: config.ldap.url,
-      reconnect: true
-    });
+    if (process.env.LDAP_ENABLED === 'true' && config.ldap.url) {
+      this.client = ldap.createClient({
+        url: config.ldap.url,
+        reconnect: true
+      });
+    }
   }
 
   async authenticate(username, password) {
+    if (!this.client) {
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       const userDN = `cn=${username},${config.ldap.searchBase}`;
       
@@ -27,6 +33,10 @@ class LDAPService {
   }
 
   async searchUser(username) {
+    if (!this.client) {
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       const opts = {
         filter: config.ldap.searchFilter.replace('{{username}}', username),

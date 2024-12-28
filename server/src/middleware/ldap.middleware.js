@@ -3,7 +3,7 @@ const logger = require('../services/logger.service');
 
 const ldapAuth = async (req, res, next) => {
   // Skip LDAP if it's not properly configured
-  if (!process.env.LDAP_ENABLED || process.env.LDAP_ENABLED !== 'true') {
+  if (process.env.LDAP_ENABLED !== 'true') {
     return next(); // Continue to regular auth
   }
 

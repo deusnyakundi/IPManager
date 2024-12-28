@@ -11,9 +11,7 @@ import ManageIPBlocks from '../components/admin/ManageIPBlocks';
 import ManageRegions from '../components/admin/ManageRegions';
 import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
 import ConfigurationGenerator from '../components/config/ConfigurationGenerator';
-import NetworkSettings from '../components/admin/NetworkSettings';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
-import ManageMSPs from '../components/admin/ManageMSPs';
 import PseudowireGenerator from '../components/config/PseudowireGenerator';
 
 const AppRoutes = () => {

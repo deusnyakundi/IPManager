@@ -35,6 +35,9 @@ const SitesManagement = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showSiteForm, setShowSiteForm] = useState(false);
   const [selectedSite, setSelectedSite] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalRows, setTotalRows] = useState(0);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -96,6 +99,15 @@ const SitesManagement = () => {
     } catch (error) {
       console.error('Error submitting form:', error);
     }
+  };
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   return (
@@ -231,6 +243,11 @@ const SitesManagement = () => {
                 setSelectedSite(site);
                 setShowSiteForm(true);
               }}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
+              totalCount={totalRows}
             />
           </Box>
         </Paper>

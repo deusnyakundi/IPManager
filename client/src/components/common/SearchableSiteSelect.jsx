@@ -14,22 +14,28 @@ const SearchableSiteSelect = ({
   label,
   onSelect,
   optional = false,
-  filterOLTs = false
+  filterOLTs = false,
+  sites: externalSites,
+  value: externalValue,
+  onChange: externalOnChange,
+  loading: externalLoading
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef(null);
   const [sites, setSites] = useState([]);
   const [selectedSite, setSelectedSite] = useState(null);
+  const inputRef = useRef(null);
 
-  const handleClickAway = () => {
-    setIsOpen(false);
-  };
+  const effectiveSites = externalSites || sites;
+  const effectiveLoading = externalLoading || loading;
+  const effectiveValue = externalValue || selectedSite;
 
   useEffect(() => {
-    fetchSites();
-  }, [filterOLTs]);
+    if (!externalSites) {
+      fetchSites();
+    }
+  }, [filterOLTs, externalSites]);
 
   const fetchSites = async () => {
     try {
@@ -47,23 +53,31 @@ const SearchableSiteSelect = ({
     }
   };
 
-  const filteredSites = sites.filter(site => {
+  const handleClickAway = () => {
+    setIsOpen(false);
+  };
+
+  const filteredSites = effectiveSites.filter(site => {
     if (!searchTerm) return true;
     const searchField = filterOLTs ? site.site_name : site.name;
     return searchField.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const handleSelect = (site) => {
-    setSelectedSite(site);
-    onSelect(site);
+    if (externalOnChange) {
+      externalOnChange(site);
+    } else {
+      setSelectedSite(site);
+      onSelect(site);
+    }
     setIsOpen(false);
     setSearchTerm('');
   };
 
-  const displayValue = selectedSite 
+  const displayValue = effectiveValue 
     ? filterOLTs 
-      ? selectedSite.site_name
-      : `${selectedSite.name} ${selectedSite.region?.name ? `(${selectedSite.region.name})` : ''} ${selectedSite.msp?.name ? `(${selectedSite.msp.name})` : ''}`
+      ? effectiveValue.site_name
+      : `${effectiveValue.name} ${effectiveValue.region?.name ? `(${effectiveValue.region.name})` : ''} ${effectiveValue.msp?.name ? `(${effectiveValue.msp.name})` : ''}`
     : '';
 
   return (
@@ -80,7 +94,7 @@ const SearchableSiteSelect = ({
           onFocus={() => setIsOpen(true)}
           InputProps={{
             startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: '1.2rem' }} />,
-            endAdornment: loading && <CircularProgress size={20} />,
+            endAdornment: effectiveLoading && <CircularProgress size={20} />,
             sx: { 
               height: '40px',
               minHeight: '40px',
