@@ -37,6 +37,7 @@ import {
   Logout as LogoutIcon,
   ViewStream as VCIDIcon,
   Build as NetworkSettingsIcon,
+  Dashboard as DashboardIcon
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -83,6 +84,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 }));
 
 const menuItems = [
+  { path: '/', label: 'Dashboard', icon: <DashboardIcon />, adminOnly: false },
   { path: '/sites', label: 'Sites', icon: <SitesIcon />, adminOnly: true },
   //{ path: '/regions', label: 'Regions', icon: <RegionsIcon />, adminOnly: true },
   { path: '/ip-blocks', label: 'IP Blocks', icon: <IPBlocksIcon />, adminOnly: true },
