@@ -105,14 +105,29 @@ const SitesManagement = () => {
     try {
       if (selectedSite) {
         await siteAPI.updateSite(selectedSite.id, data);
+        setNotification({
+          open: true,
+          message: 'Site updated successfully',
+          severity: 'success'
+        });
       } else {
         await siteAPI.createSite(data);
+        setNotification({
+          open: true,
+          message: 'Site created successfully',
+          severity: 'success'
+        });
       }
       await fetchSites();
       setShowSiteForm(false);
       setSelectedSite(null);
     } catch (error) {
       console.error('Error submitting form:', error);
+      setNotification({
+        open: true,
+        message: error.response?.data?.message || 'Error creating site',
+        severity: 'error'
+      });
     }
   };
 
