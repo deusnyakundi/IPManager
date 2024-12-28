@@ -1,5 +1,5 @@
 import api from '../utils/api';
-import { utils as XLSXUtils, write as XLSXWrite } from 'xlsx';
+import * as XLSX from 'xlsx';
 
 export const siteAPI = {
   getAllSites: (params) => api.get('/sites', { params }),
@@ -24,8 +24,8 @@ export const siteAPI = {
       }));
 
       // Create workbook and worksheet
-      const wb = XLSXUtils.book_new();
-      const ws = XLSXUtils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
 
       // Set column widths
       const colWidths = [
@@ -38,10 +38,10 @@ export const siteAPI = {
       ws['!cols'] = colWidths;
 
       // Add worksheet to workbook
-      XLSXUtils.book_append_sheet(wb, ws, 'Sites');
+      XLSX.utils.book_append_sheet(wb, ws, 'Sites');
 
       // Generate Excel file
-      XLSXWrite(wb, 'sites.xlsx');
+      XLSX.writeFile(wb, 'sites.xlsx');
       
     } catch (error) {
       console.error('Error exporting sites:', error);
@@ -50,31 +50,79 @@ export const siteAPI = {
   },
   importSites: async (file) => {
     try {
+      // First fetch all reference data and existing sites
+      const [regionsResponse, mspsResponse, ipranClustersResponse, existingSitesResponse] = await Promise.all([
+        api.get('/regions'),
+        api.get('/msps'),
+        api.get('/ipran-clusters'),
+        api.get('/sites')
+      ]);
+
+      const regions = regionsResponse.data;
+      const msps = mspsResponse.data;
+      const ipranClusters = ipranClustersResponse.data;
+      const existingSites = existingSitesResponse.data;
+
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
           try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSXUtils.read(data, { type: 'array' });
-            
-            // Get first worksheet
+            const workbook = XLSX.read(data, { type: 'array' });
             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            
-            // Convert to JSON
-            const jsonData = XLSXUtils.sheet_to_json(worksheet);
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-            // Format data for API - send the text values
-            const formattedData = jsonData.map(row => ({
-              name: row['Site Name'],
-              ip: row['IP Address'],
-              region: row['Region'],        // Send region name
-              msp: row['MSP'],             // Send MSP name
-              ipranCluster: row['IPRAN Cluster']  // Send cluster name
+            // Format data and translate names to IDs
+            const formattedData = jsonData.map(row => {
+              const region = regions.find(r => r.name.toLowerCase() === row['Region']?.toLowerCase());
+              const msp = msps.find(m => m.name.toLowerCase() === row['MSP']?.toLowerCase());
+              const ipranCluster = ipranClusters.find(c => c.name.toLowerCase() === row['IPRAN Cluster']?.toLowerCase());
+
+              return {
+                name: row['Site Name'],
+                ip: row['IP Address'],
+                region_id: region?.id,
+                msp_id: msp?.id,
+                ipran_cluster_id: ipranCluster?.id
+              };
+            });
+
+            // Filter out entries with missing required IDs
+            const validData = formattedData.filter(site => 
+              site.name && site.region_id && site.msp_id && site.ipran_cluster_id
+            );
+
+            if (validData.length === 0) {
+              throw new Error('No valid sites found in the import file. Please check the region, MSP, and IPRAN cluster names match exactly.');
+            }
+
+            // Process each site - create new or update existing
+            const results = await Promise.all(validData.map(async (site) => {
+              try {
+                // Check if site exists by IP
+                const existingSite = existingSites.find(s => s.ip === site.ip);
+                
+                if (existingSite) {
+                  // Update existing site
+                  return await api.put(`/sites/${existingSite.id}`, site);
+                } else {
+                  // Create new site
+                  return await api.post('/sites', site);
+                }
+              } catch (error) {
+                console.error('Error processing site:', site, error);
+                return null;
+              }
             }));
 
-            // Send to backend
-            const response = await api.post('/sites/import', { sites: formattedData });
-            resolve(response);
+            const successfulResults = results.filter(r => r !== null);
+
+            resolve({
+              data: successfulResults,
+              totalRows: jsonData.length,
+              importedRows: successfulResults.length,
+              skippedRows: jsonData.length - successfulResults.length
+            });
           } catch (error) {
             reject(error);
           }

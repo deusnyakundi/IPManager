@@ -78,11 +78,21 @@ const SitesManagement = () => {
 
   const handleImport = async (event) => {
     const file = event.target.files[0];
+    if (!file) return;
+
+    console.log('Starting import with file:', file.name);
     try {
-      await siteAPI.importSites(file);
-      fetchSites();
+      const result = await siteAPI.importSites(file);
+      console.log('Import result:', result);
+      
+      // Show import statistics
+      alert(`Import completed:\nTotal rows: ${result.totalRows}\nImported: ${result.importedRows}\nSkipped: ${result.skippedRows}`);
+      
+      // Refresh the sites list
+      await fetchSites();
     } catch (error) {
       console.error('Error importing sites:', error);
+      alert('Error importing sites: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -223,7 +233,7 @@ const SitesManagement = () => {
                 <input
                   type="file"
                   hidden
-                  accept=".csv"
+                  accept=".xlsx,.xls"
                   onChange={handleImport}
                 />
               </Button>
