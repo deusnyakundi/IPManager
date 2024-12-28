@@ -18,6 +18,8 @@ const helmet = require('helmet');
 const loginLimiter = require('./middleware/rateLimit.middleware');
 const logger = require('./services/logger.service');
 const vlanRoutes = require('./routes/vlan.routes');
+const activityLogger = require('./middleware/activityLogger');
+const activityLogRoutes = require('./routes/activityLog.routes');
 
 dotenv.config();
 
@@ -51,6 +53,8 @@ const authCheck = (req, res, next) => {
   next();
 };
 
+app.use(activityLogger);
+
 app.use('/api/admin', authCheck);
 
 app.use('/api/auth', authRoutes);
@@ -65,6 +69,7 @@ app.use('/api/vcid', vcidRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/vlan-ranges', vlanRoutes);
 app.use('/api/vlans', vlanRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 
 app.use((err, req, res, next) => {
   logger.error('Unhandled Error', {

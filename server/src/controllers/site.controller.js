@@ -84,14 +84,24 @@ const siteController = {
 
       const { 
         name, 
-        region_id, 
+        region_id,
+        regionId,
         msp_id,
+        mspId,
         ipran_cluster_id,
-        ip
+        ipranClusterId,
+        ip,
+        ipAddress
       } = req.body;
 
+      // Use the appropriate field names
+      const finalRegionId = region_id || regionId;
+      const finalMspId = msp_id || mspId;
+      const finalIpranClusterId = ipran_cluster_id || ipranClusterId;
+      const finalIp = ip || ipAddress;
+
       // Validate required fields
-      if (!name || !region_id) {
+      if (!name || !finalRegionId) {
         throw new Error('Name and region are required');
       }
 
@@ -115,7 +125,7 @@ const siteController = {
           ip
         ) VALUES ($1, $2, $3, $4, $5) 
         RETURNING *`,
-        [name, region_id, msp_id, ipran_cluster_id, ip]
+        [name, finalRegionId, finalMspId, finalIpranClusterId, finalIp]
       );
 
       // Get complete site info with related data
