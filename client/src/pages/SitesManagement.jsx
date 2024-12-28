@@ -10,7 +10,9 @@ import {
   Chip,
   Dialog,
   MenuItem,
-  Grid
+  Grid,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -23,6 +25,7 @@ import { siteAPI } from '../services/siteAPI';
 import SitesList from '../components/sites/SitesList';
 import SiteForm from '../components/sites/SiteForm';
 import SiteFilters from '../components/sites/SiteFilters';
+import ImportSummaryDialog from '../components/sites/ImportSummaryDialog';
 
 const SitesManagement = () => {
   const [sites, setSites] = useState([]);
@@ -38,6 +41,9 @@ const SitesManagement = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalRows, setTotalRows] = useState(0);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  const [importSummary, setImportSummary] = useState(null);
+  const [showImportSummary, setShowImportSummary] = useState(false);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -80,19 +86,18 @@ const SitesManagement = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('Starting import with file:', file.name);
     try {
       const result = await siteAPI.importSites(file);
-      console.log('Import result:', result);
-      
-      // Show import statistics
-      alert(`Import completed:\nTotal rows: ${result.totalRows}\nImported: ${result.importedRows}\nSkipped: ${result.skippedRows}`);
-      
-      // Refresh the sites list
+      setImportSummary(result);
+      setShowImportSummary(true);
       await fetchSites();
     } catch (error) {
       console.error('Error importing sites:', error);
-      alert('Error importing sites: ' + (error.message || 'Unknown error'));
+      setNotification({
+        open: true,
+        message: 'Error importing sites: ' + (error.message || 'Unknown error'),
+        severity: 'error'
+      });
     }
   };
 
@@ -304,6 +309,27 @@ const SitesManagement = () => {
           onClose={() => setShowFilters(false)}
         />
       </Dialog>
+
+      <ImportSummaryDialog
+        open={showImportSummary}
+        onClose={() => setShowImportSummary(false)}
+        summary={importSummary}
+      />
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

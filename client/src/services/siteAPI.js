@@ -97,31 +97,38 @@ export const siteAPI = {
             }
 
             // Process each site - create new or update existing
-            const results = await Promise.all(validData.map(async (site) => {
+            const results = await Promise.all(validData.map(async (site, index) => {
               try {
                 // Check if site exists by IP
                 const existingSite = existingSites.find(s => s.ip === site.ip);
                 
                 if (existingSite) {
                   // Update existing site
-                  return await api.put(`/sites/${existingSite.id}`, site);
+                  const response = await api.put(`/sites/${existingSite.id}`, site);
+                  return { success: true, data: response.data };
                 } else {
                   // Create new site
-                  return await api.post('/sites', site);
+                  const response = await api.post('/sites', site);
+                  return { success: true, data: response.data };
                 }
               } catch (error) {
-                console.error('Error processing site:', site, error);
-                return null;
+                return {
+                  success: false,
+                  siteName: site.name,
+                  rowNumber: index + 1,
+                  error: error.response?.data?.error || error.response?.data?.message || 'Failed to import site'
+                };
               }
             }));
 
-            const successfulResults = results.filter(r => r !== null);
+            const successfulResults = results.filter(r => r.success);
+            const failures = results.filter(r => !r.success);
 
             resolve({
-              data: successfulResults,
               totalRows: jsonData.length,
               importedRows: successfulResults.length,
-              skippedRows: jsonData.length - successfulResults.length
+              failures: failures,
+              data: successfulResults.map(r => r.data)
             });
           } catch (error) {
             reject(error);
