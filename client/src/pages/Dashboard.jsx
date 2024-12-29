@@ -10,6 +10,21 @@ import {
   LinearProgress,
   IconButton,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  DialogActions,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { 
   CellTower as SiteIcon,
@@ -19,6 +34,9 @@ import {
   Settings as SettingsIcon,
   Build as BuildIcon,
   CompareArrows as CompareArrowsIcon,
+  LocationOn as LocationIcon,
+  Business as MspIcon,
+  Memory as VendorIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
@@ -39,9 +57,17 @@ const Dashboard = () => {
       egypro: 0,
       huawei: 0,
       nokia: 0
-    }
+    },
+    sitesPerRegion: [],
+    detailedData: []
   });
   const [loading, setLoading] = useState(true);
+  const [detailDialog, setDetailDialog] = useState({
+    open: false,
+    title: '',
+    data: [],
+    type: ''
+  });
   const navigate = useNavigate();
 
   const fetchDashboardData = async () => {
@@ -59,6 +85,22 @@ const Dashboard = () => {
         }
         return acc;
       }, {});
+
+      // Calculate sites per region
+      const sitesPerRegion = assignments.reduce((acc, site) => {
+        if (site.region_name) {
+          if (!acc[site.region_name]) {
+            acc[site.region_name] = new Set();
+          }
+          acc[site.region_name].add(site.base_name.replace(/0[2-9]$/, ''));
+        }
+        return acc;
+      }, {});
+
+      const sitesPerRegionCount = Object.entries(sitesPerRegion).map(([name, sites]) => ({
+        name,
+        value: sites.size
+      }));
 
       const mspCounts = assignments.reduce((acc, site) => {
         if (site.msp_name) {
@@ -96,7 +138,8 @@ const Dashboard = () => {
         uniqueSites,
         regionCounts,
         mspCounts,
-        vendorCounts
+        vendorCounts,
+        sitesPerRegionCount
       });
 
       setStats({
@@ -108,7 +151,9 @@ const Dashboard = () => {
         oltByMSP: Object.entries(mspCounts)
           .map(([name, value]) => ({ name, value }))
           .filter(item => item.name !== 'null'),
-        oltByType: vendorCounts
+        oltByType: vendorCounts,
+        sitesPerRegion: sitesPerRegionCount,
+        detailedData: assignments
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -124,8 +169,52 @@ const Dashboard = () => {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-  const StatCard = ({ icon: Icon, title, value, color }) => (
-    <Card sx={{ height: '100%' }}>
+  const handleChartClick = (data, type) => {
+    let filteredData = [];
+    let title = '';
+
+    switch (type) {
+      case 'region':
+        title = `OLT Sites in ${data.name}`;
+        filteredData = stats.detailedData.filter(
+          item => item.region_name === data.name
+        );
+        break;
+      case 'msp':
+        title = `OLT Sites managed by ${data.name}`;
+        filteredData = stats.detailedData.filter(
+          item => item.msp_name === data.name
+        );
+        break;
+      case 'vendor':
+        title = `${data.name} OLT Sites`;
+        filteredData = stats.detailedData.filter(
+          item => item.vendor_types?.includes(data.name.toLowerCase())
+        );
+        break;
+      default:
+        return;
+    }
+
+    setDetailDialog({
+      open: true,
+      title,
+      data: filteredData,
+      type
+    });
+  };
+
+  const StatCard = ({ icon: Icon, title, value, color, onClick }) => (
+    <Card 
+      sx={{ 
+        height: '100%',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick ? {
+          backgroundColor: 'action.hover'
+        } : {}
+      }}
+      onClick={onClick}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Icon sx={{ color: color, mr: 1 }} />
@@ -138,6 +227,48 @@ const Dashboard = () => {
         </Typography>
       </CardContent>
     </Card>
+  );
+
+  const DetailDialog = () => (
+    <Dialog 
+      open={detailDialog.open} 
+      onClose={() => setDetailDialog(prev => ({ ...prev, open: false }))}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>{detailDialog.title}</DialogTitle>
+      <DialogContent>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Site Name</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>MSP</TableCell>
+                <TableCell>OLT Count</TableCell>
+                <TableCell>Vendor Types</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {detailDialog.data.map((row, index) => (
+                <TableRow key={index}>
+                  <TableCell>{row.base_name}</TableCell>
+                  <TableCell>{row.region_name}</TableCell>
+                  <TableCell>{row.msp_name}</TableCell>
+                  <TableCell>{row.olt_count}</TableCell>
+                  <TableCell>{row.vendor_types}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setDetailDialog(prev => ({ ...prev, open: false }))}>
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 
   return (
@@ -251,6 +382,7 @@ const Dashboard = () => {
                   title="Total OLTs Installed"
                   value={stats.totalAssignments}
                   color="#1976d2"
+                  onClick={() => handleChartClick({ name: 'All' }, 'all')}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -276,13 +408,39 @@ const Dashboard = () => {
                         cy="50%"
                         outerRadius={120}
                         label
+                        onClick={(data) => handleChartClick(data, 'region')}
                       >
                         {stats.oltByRegion.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={COLORS[index % COLORS.length]}
+                            style={{ cursor: 'pointer' }}
+                          />
                         ))}
                       </Pie>
                       <RechartsTooltip />
                     </PieChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 2, height: 400 }}>
+                  <Typography variant="h6" gutterBottom>Sites per Region</Typography>
+                  <ResponsiveContainer width="100%" height="90%">
+                    <BarChart data={stats.sitesPerRegion}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#82ca9d"
+                        onClick={(data) => handleChartClick(data, 'region')}
+                      >
+                        <LabelList dataKey="value" position="top" />
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </Paper>
               </Grid>
@@ -296,7 +454,13 @@ const Dashboard = () => {
                       <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
                       <YAxis />
                       <RechartsTooltip />
-                      <Bar dataKey="value" fill="#8884d8" />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#8884d8"
+                        onClick={(data) => handleChartClick(data, 'msp')}
+                      >
+                        <LabelList dataKey="value" position="top" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </Paper>
@@ -304,7 +468,7 @@ const Dashboard = () => {
 
               {/* Vendor Chart */}
               {stats.oltByType && Object.values(stats.oltByType).some(v => v > 0) && (
-                <Grid item xs={12}>
+                <Grid item xs={12} md={6}>
                   <Paper sx={{ p: 2, height: 400 }}>
                     <Typography variant="h6" gutterBottom>OLT Sites by Vendor</Typography>
                     <ResponsiveContainer width="100%" height="90%">
@@ -321,7 +485,11 @@ const Dashboard = () => {
                         <XAxis dataKey="name" />
                         <YAxis />
                         <RechartsTooltip />
-                        <Bar dataKey="value" fill="#82ca9d">
+                        <Bar 
+                          dataKey="value" 
+                          fill="#82ca9d"
+                          onClick={(data) => handleChartClick(data, 'vendor')}
+                        >
                           <LabelList dataKey="value" position="top" />
                         </Bar>
                       </BarChart>
@@ -333,6 +501,7 @@ const Dashboard = () => {
           </Paper>
         )}
       </Box>
+      <DetailDialog />
     </Container>
   );
 };
