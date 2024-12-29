@@ -46,7 +46,7 @@ const FormSection = styled(Box)(({ theme }) => ({
 const SiteForm = ({ site, onSubmit, onClose }) => {
   const [formData, setFormData] = useState({
     name: '',
-    ipAddress: '',
+    ip: '',
     region_id: '',
     msp_id: '',
     ipran_cluster_id: ''
@@ -62,7 +62,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     if (site) {
       setFormData({
         name: site.name,
-        ipAddress: site.ipAddress || '',
+        ip: site.ip || '',
         region_id: site.region_id || '',
         msp_id: site.msp_id || '',
         ipran_cluster_id: site.ipran_cluster_id || ''
@@ -112,8 +112,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     if (!formData.region_id) {
       newErrors.region_id = 'Region is required';
     }
-    if (formData.ipAddress && !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ipAddress)) {
-      newErrors.ipAddress = 'Invalid IP address format';
+    if (formData.ip && !/^(\d{1,3}\.){3}\d{1,3}$/.test(formData.ip)) {
+      newErrors.ip = 'Invalid IP address format';
     }
     if (!formData.msp_id) {
       newErrors.msp_id = 'MSP is required';
@@ -151,7 +151,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
         region_id: formData.region_id,
         msp_id: formData.msp_id,
         ipran_cluster_id: formData.ipran_cluster_id,
-        ip: formData.ipAddress
+        ip: formData.ip
       });
       onClose();
     } catch (error) {
@@ -236,16 +236,16 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
           </TextField>
 
           <TextField
-            name="ipAddress"
+            name="ip"
             label="IP Address"
-            value={formData.ipAddress}
+            value={formData.ip}
             onChange={handleChange}
-            error={!!errors.ipAddress}
-            helperText={errors.ipAddress}
+            error={!!errors.ip}
+            helperText={errors.ip}
             fullWidth
             size="small"
             InputProps={{
-              startAdornment: formData.ipAddress ? (
+              startAdornment: formData.ip ? (
                 <InputAdornment position="start">
                   <Tooltip title="Format: xxx.xxx.xxx.xxx (optional)">
                     <InfoIcon fontSize="small" color="action" />

@@ -180,7 +180,7 @@ const siteController = {
       const { id } = req.params;
       const { 
         name, 
-        ipAddress, 
+        ip,
         region_id, 
         msp_id, 
         ipran_cluster_id 
@@ -206,7 +206,7 @@ const siteController = {
              ipran_cluster_id = $5
          WHERE id = $6 
          RETURNING *`,
-        [name, ipAddress, region_id, msp_id, ipran_cluster_id, id]
+        [name, ip, region_id, msp_id, ipran_cluster_id, id]
       );
 
       // Get complete site info with related data
@@ -229,7 +229,7 @@ const siteController = {
       res.json({
         id: site.id,
         name: site.name,
-        ipAddress: site.ip,
+        ip: site.ip,
         regionId: site.region_id,
         region: site.region_name ? {
           id: site.region_id,
