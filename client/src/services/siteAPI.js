@@ -17,7 +17,7 @@ export const siteAPI = {
       // Format data for Excel
       const excelData = response.data.map(site => ({
         'Site Name': site.name,
-        'IP Address': site.ip || '',
+        'IP Address': site.ipAddress || '',
         'Region': site.region?.name || '',
         'MSP': site.msp?.name || '',
         'IPRAN Cluster': site.ipranCluster || ''
