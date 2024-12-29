@@ -105,28 +105,53 @@ const siteController = {
         throw new Error('Name and region are required');
       }
 
-      // Check if site name already exists
-      const existingSite = await client.query(
-        'SELECT id FROM sites WHERE name = $1',
-        [name]
-      );
-
-      if (existingSite.rows.length > 0) {
-        throw new Error('Site name already exists');
+      // Check if site exists by IP
+      let existingSite = null;
+      if (finalIp) {
+        const ipCheck = await client.query(
+          'SELECT * FROM sites WHERE ip = $1',
+          [finalIp]
+        );
+        if (ipCheck.rows.length > 0) {
+          existingSite = ipCheck.rows[0];
+        }
       }
 
-      // Create the site
-      const result = await client.query(
-        `INSERT INTO sites (
-          name, 
-          region_id, 
-          msp_id,
-          ipran_cluster_id,
-          ip
-        ) VALUES ($1, $2, $3, $4, $5) 
-        RETURNING *`,
-        [name, finalRegionId, finalMspId, finalIpranClusterId, finalIp]
-      );
+      let result;
+      if (existingSite) {
+        // Update existing site
+        result = await client.query(
+          `UPDATE sites 
+           SET name = $1,
+               ip = $2,
+               region_id = $3,
+               msp_id = $4,
+               ipran_cluster_id = $5
+           WHERE id = $6
+           RETURNING *`,
+          [
+            name,
+            finalIp,
+            finalRegionId,
+            finalMspId,
+            finalIpranClusterId,
+            existingSite.id
+          ]
+        );
+      } else {
+        // Create the site
+        result = await client.query(
+          `INSERT INTO sites (
+            name, 
+            region_id, 
+            msp_id,
+            ipran_cluster_id,
+            ip
+          ) VALUES ($1, $2, $3, $4, $5) 
+          RETURNING *`,
+          [name, finalRegionId, finalMspId, finalIpranClusterId, finalIp]
+        );
+      }
 
       // Get complete site info with related data
       const siteResult = await client.query(`
@@ -921,14 +946,16 @@ const siteController = {
             throw new Error(`Region "${site.region}" not found`);
           }
 
-          // Check if IP exists (if provided)
+          // Check if site exists by IP
           let existingSite = null;
           if (site.ip) {
             const ipCheck = await client.query(
-              'SELECT id FROM sites WHERE ip = $1',
+              'SELECT * FROM sites WHERE ip = $1',
               [site.ip]
             );
-            existingSite = ipCheck.rows[0];
+            if (ipCheck.rows.length > 0) {
+              existingSite = ipCheck.rows[0];
+            }
           }
 
           let result;
@@ -937,13 +964,15 @@ const siteController = {
             result = await client.query(
               `UPDATE sites 
                SET name = $1,
-                   region_id = $2,
-                   msp_id = $3,
-                   ipran_cluster_id = $4
-               WHERE id = $5
+                   ip = $2,
+                   region_id = $3,
+                   msp_id = $4,
+                   ipran_cluster_id = $5
+               WHERE id = $6
                RETURNING *`,
               [
                 site.name,
+                site.ip,
                 region_id,
                 msp_id,
                 ipran_cluster_id,
@@ -951,6 +980,17 @@ const siteController = {
               ]
             );
           } else {
+            // Check if IP is already used by another site
+            if (site.ip) {
+              const ipUsed = await client.query(
+                'SELECT id FROM sites WHERE ip = $1',
+                [site.ip]
+              );
+              if (ipUsed.rows.length > 0) {
+                throw new Error(`IP address ${site.ip} is already in use`);
+              }
+            }
+
             // Insert new site
             result = await client.query(
               `INSERT INTO sites (
