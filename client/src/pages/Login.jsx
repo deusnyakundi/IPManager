@@ -12,62 +12,6 @@ import {
   Paper,
 } from '@mui/material';
 
-const commands = [
-  '> Connecting to Njiru_chokaa-OLT...',
-  'Njiru_chokaa-OLT>enable',
-  'Njiru_chokaa-OLT>',
-  'Njiru_chokaa-OLT#config',
-  '> Entering configuration mode...',
-  'Njiru_chokaa-OLT(config)#display current-configuration',
-  '> Retrieving configuration details...',
-  'Njiru_chokaa-OLT(config)#display ont optical-info 14 all',
-  '> Displaying ONT optical details for port 14...',
-  'Njiru_chokaa-OLT(config)#exit',
-  '> Exiting configuration mode...',
-];
-
-const TerminalSimulation = () => {
-  const [displayedCommands, setDisplayedCommands] = useState([]);
-  const [simulationCompleted, setSimulationCompleted] = useState(false);
-
-  useEffect(() => {
-    let index = 0;
-
-    const interval = setInterval(() => {
-      if (index < commands.length) {
-        setDisplayedCommands((prev) => [...prev, commands[index]]);
-        index++;
-      } else {
-        clearInterval(interval);
-        setSimulationCompleted(true); // Mark simulation as complete
-      }
-    }, 1500); // Adjust delay between commands
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <Box
-      sx={{
-        width: '50%',
-        height: '40%',
-        mt:25,
-        ml:5,
-        backgroundColor: '#000',
-        color: '#0f0',
-        fontFamily: 'monospace',
-        padding: 2,
-        overflowY: 'auto',
-        display: simulationCompleted ? 'block' : 'block',
-       
-      }}
-    >
-      {displayedCommands.map((cmd, i) => (
-        <Typography key={i}>{cmd}</Typography>
-      ))}
-    </Box>
-  );
-};
 
 const Login = () => {
   const navigate = useNavigate();
@@ -92,8 +36,6 @@ const Login = () => {
         overflow: 'hidden',
       }}
     >
-      {/* CLI Terminal Simulation */}
-      <TerminalSimulation />
 
       {/* Right Side for Login */}
       <Box
