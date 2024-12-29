@@ -60,12 +60,23 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
 
   useEffect(() => {
     if (site) {
+      console.log('Setting form data for site:', site);
+      const siteIp = site.ip || site.ipAddress || '';
+      setFormData(prevData => ({
+        name: site.name || '',
+        ip: siteIp,
+        region_id: site.region_id || site.regionId || '',
+        msp_id: site.msp_id || site.mspId || '',
+        ipran_cluster_id: site.ipran_cluster_id || site.ipranClusterId || ''
+      }));
+    } else {
+      // Reset form when creating new site
       setFormData({
-        name: site.name,
-        ip: site.ip || '',
-        region_id: site.region_id || '',
-        msp_id: site.msp_id || '',
-        ipran_cluster_id: site.ipran_cluster_id || ''
+        name: '',
+        ip: '',
+        region_id: '',
+        msp_id: '',
+        ipran_cluster_id: ''
       });
     }
     fetchRegions();
@@ -146,13 +157,20 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
 
     setLoading(true);
     try {
-      await onSubmit({
+      const submitData = {
         name: formData.name,
         region_id: formData.region_id,
         msp_id: formData.msp_id,
         ipran_cluster_id: formData.ipran_cluster_id,
-        ip: formData.ip
-      });
+      };
+
+      if (site && site.ip) {
+        submitData.ip = site.ip;
+      } else if (formData.ip) {
+        submitData.ip = formData.ip;
+      }
+
+      await onSubmit(submitData);
       onClose();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to create site';
@@ -244,10 +262,16 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             helperText={errors.ip}
             fullWidth
             size="small"
+            disabled={!!site}
+            sx={{
+              "& .Mui-disabled": {
+                WebkitTextFillColor: "rgba(0, 0, 0, 0.6)",
+              }
+            }}
             InputProps={{
               startAdornment: formData.ip ? (
                 <InputAdornment position="start">
-                  <Tooltip title="Format: xxx.xxx.xxx.xxx (optional)">
+                  <Tooltip title={site ? "IP Address cannot be edited" : "Format: xxx.xxx.xxx.xxx (optional)"}>
                     <InfoIcon fontSize="small" color="action" />
                   </Tooltip>
                 </InputAdornment>
