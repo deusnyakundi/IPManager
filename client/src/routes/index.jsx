@@ -13,6 +13,7 @@ import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
 import ConfigurationGenerator from '../components/config/ConfigurationGenerator';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
 import PseudowireGenerator from '../components/config/PseudowireGenerator';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 const AppRoutes = () => {
   const { user } = useAuth();

@@ -3,7 +3,8 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import NavBar from "./components/layout/NavBar";
-import AppRoutes from "./routes";
+import AppRoutes from "./routes/index";
+
 
 
 const theme = createTheme({
