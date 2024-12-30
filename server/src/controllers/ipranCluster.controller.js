@@ -13,11 +13,11 @@ const ipranClusterController = {
   },
 
   createCluster: async (req, res) => {
-    const { name, region_id } = req.body;
+    const { name } = req.body;
     try {
       const result = await pool.query(
         'INSERT INTO ipran_clusters (name) VALUES ($1) RETURNING *',
-        [name, region_id]
+        [name]
       );
       res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -33,7 +33,7 @@ const ipranClusterController = {
 
   updateCluster: async (req, res) => {
     const { id } = req.params;
-    const { name, region_id } = req.body;
+    const { name } = req.body;
     try {
       const result = await pool.query(
         'UPDATE ipran_clusters SET name = $1 WHERE id = $2 RETURNING *',

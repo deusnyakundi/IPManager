@@ -44,7 +44,6 @@ CREATE TABLE users (
 CREATE TABLE ip_assignments (
     id integer NOT NULL DEFAULT nextval('ip_assignments_id_seq'::regclass),
     site_name character varying(100) NOT NULL,
-    region_id integer,
     assigned_ip inet NOT NULL,
     management_vlan integer NOT NULL,
     primary_vcid integer NOT NULL,
@@ -52,29 +51,30 @@ CREATE TABLE ip_assignments (
     vsi_id integer NOT NULL,
     assigned_by integer,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    ipran_cluster_id integer,
     CONSTRAINT ip_assignments_pkey PRIMARY KEY (id),
     CONSTRAINT ip_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES users(id),
-    CONSTRAINT ip_assignments_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
+    CONSTRAINT ip_assignments_ipran_cluster_id_fkey FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id)
 );
 
 -- Create ip_blocks table
 CREATE TABLE ip_blocks (
     id integer NOT NULL DEFAULT nextval('ip_blocks_id_seq'::regclass),
     block character varying(255) NOT NULL,
-    region_id integer,
+    ipran_cluster_id integer,
     CONSTRAINT ip_blocks_pkey PRIMARY KEY (id),
-    CONSTRAINT ip_blocks_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
+    CONSTRAINT ip_blocks_ipran_cluster_id_fkey FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id)
 );
 
 -- Create ip_ranges table
 CREATE TABLE ip_ranges (
     id integer NOT NULL DEFAULT nextval('ip_ranges_id_seq'::regclass),
-    region_id integer,
+    ipran_cluster_id integer,
     start_ip inet NOT NULL,
     end_ip inet NOT NULL,
     is_active boolean DEFAULT true,
     CONSTRAINT ip_ranges_pkey PRIMARY KEY (id),
-    CONSTRAINT ip_ranges_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
+    CONSTRAINT ip_ranges_ipran_cluster_id_fkey FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id)
 );
 
 -- Create sites table
@@ -93,7 +93,7 @@ CREATE TABLE sites (
 -- Create vcid_ranges table
 CREATE TABLE vcid_ranges (
     id integer NOT NULL DEFAULT nextval('vcid_ranges_id_seq'::regclass),
-    region_id integer,
+    ipran_cluster_id integer,
     start_primary_vcid integer NOT NULL,
     end_primary_vcid integer NOT NULL,
     start_secondary_vcid integer NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE vcid_ranges (
     start_vsi_id integer NOT NULL,
     end_vsi_id integer NOT NULL,
     CONSTRAINT vcid_ranges_pkey PRIMARY KEY (id),
-    CONSTRAINT vcid_ranges_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
+    CONSTRAINT vcid_ranges_ipran_cluster_id_fkey FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id)
 );
 
 -- Create vlan_ranges table
@@ -109,9 +109,9 @@ CREATE TABLE vlan_ranges (
     id integer NOT NULL DEFAULT nextval('vlan_ranges_id_seq'::regclass),
     start_vlan integer NOT NULL,
     end_vlan integer NOT NULL,
-    region_id integer NOT NULL,
+    ipran_cluster_id integer NOT NULL,
     CONSTRAINT vlan_ranges_pkey PRIMARY KEY (id),
-    CONSTRAINT vlan_ranges_region_id_fkey FOREIGN KEY (region_id) REFERENCES regions(id)
+    CONSTRAINT vlan_ranges_ipran_cluster_id_fkey FOREIGN KEY (ipran_cluster_id) REFERENCES ipran_clusters(id)
 );
 
 -- Create vlans table
@@ -137,11 +137,8 @@ CREATE TABLE msps (
 CREATE TABLE ipran_clusters (
     id integer NOT NULL DEFAULT nextval('ipran_clusters_id_seq'::regclass),
     name character varying(100) NOT NULL,
-    region_id integer NOT NULL,
     CONSTRAINT ipran_clusters_pkey PRIMARY KEY (id),
-    CONSTRAINT ipran_clusters_name_region_key UNIQUE (name, region_id),
-    CONSTRAINT ipran_clusters_region_id_fkey FOREIGN KEY (region_id) 
-        REFERENCES regions(id) ON DELETE RESTRICT
+       
 );
 
 -- Modify sites table to add the new relationships
@@ -168,9 +165,12 @@ ALTER SEQUENCE ipran_clusters_id_seq OWNED BY ipran_clusters.id;
 
 -- Insert some default MSPs (example data)
 INSERT INTO msps (name) VALUES 
-    ('Huawei'),
-    ('ZTE'),
-    ('Nokia')
+    ('Fireside Group'),
+    ('Camusat'),
+    ('Adrian')
+    ('Egypro'),
+    ('Soliton Telmec'),
+    ('Kinde')
 ON CONFLICT (name) DO NOTHING;
 
 -- Create default admin user
@@ -182,5 +182,27 @@ VALUES (
     'admin'
 ) ON CONFLICT (username) DO NOTHING;
 
--- Alter the sites table to allow NULL values for ip
-ALTER TABLE sites ALTER COLUMN ip DROP NOT NULL;
+
+
+-- Create activity_logs table
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    action_type VARCHAR(50) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INTEGER,
+    old_values JSONB,
+    new_values JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    timestamp TIMESTAMP DEFAULT NOW(),
+    status VARCHAR(20),
+    additional_details JSONB
+);
+
+-- Add indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_action_type ON activity_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_entity_type ON activity_logs(entity_type);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_status ON activity_logs(status); 
