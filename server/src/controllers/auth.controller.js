@@ -15,7 +15,7 @@ const generateTokens = (user) => {
   const refreshToken = jwt.sign(
     { userId: user.id },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '1d' }
+    { expiresIn: '10m' }
   );
 
   return { accessToken, refreshToken };
@@ -35,7 +35,7 @@ exports.login = async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
     res.cookie('accessToken', accessToken, { httpOnly: true });
     res.cookie('refreshToken', refreshToken, { httpOnly: true });
-    res.json({ message: 'Login successful', user: { id: user.id, username: user.username } });
+    res.json({ message: 'Login successful', user: { id: user.id, username: user.username, role:user.role } });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
