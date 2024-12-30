@@ -21,4 +21,12 @@ pool.on('connect', () => {
     console.error('Unexpected error on idle client', err);
     process.exit(-1);
   });
+
+const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET', 'REFRESH_TOKEN_SECRET'];
+requiredEnvVars.forEach((varName) => {
+  if (!process.env[varName]) {
+    throw new Error(`Missing required environment variable: ${varName}`);
+  }
+});
+
 module.exports = pool;

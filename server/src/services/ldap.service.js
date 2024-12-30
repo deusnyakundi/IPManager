@@ -6,7 +6,10 @@ class LDAPService {
     if (process.env.LDAP_ENABLED === 'true' && config.ldap.url) {
       this.client = ldap.createClient({
         url: config.ldap.url,
-        reconnect: true
+        reconnect: true,
+        tlsOptions: {
+          rejectUnauthorized: false // Ensure this is set to true in production
+        }
       });
     }
   }

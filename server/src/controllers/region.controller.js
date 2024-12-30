@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-exports.getRegions = async (req, res) => {
+exports.getAllRegions = async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM regions');
     res.json(result.rows);

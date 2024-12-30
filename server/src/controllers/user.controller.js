@@ -6,7 +6,8 @@ exports.getUsers = async (req, res) => {
     const result = await pool.query('SELECT id, username, role FROM users');
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 

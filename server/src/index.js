@@ -20,6 +20,7 @@ const logger = require('./services/logger.service');
 const vlanRoutes = require('./routes/vlan.routes');
 const activityLogger = require('./middleware/activityLogger');
 const activityLogRoutes = require('./routes/activityLog.routes');
+const crypto = require('crypto');
 
 dotenv.config();
 
@@ -29,10 +30,20 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cors());
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://example.com"], // Adjust as needed
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  frameguard: { action: 'deny' }, // Prevent clickjacking
+}));
 
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
   cookie: {

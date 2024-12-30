@@ -1,7 +1,7 @@
 // server/src/middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
 
-exports.authenticateToken = async (req, res, next) => {
+exports.authenticateToken = (req, res, next) => {
   const accessToken = req.cookies.accessToken;
 
   if (!accessToken) {
@@ -14,7 +14,6 @@ exports.authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      // Token has expired, try to refresh
       return res.status(401).json({ 
         error: 'Token expired',
         shouldRefresh: true

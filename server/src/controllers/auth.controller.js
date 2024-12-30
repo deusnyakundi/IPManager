@@ -15,7 +15,7 @@ const generateTokens = (user) => {
   const refreshToken = jwt.sign(
     { userId: user.id },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1d' }
   );
 
   return { accessToken, refreshToken };
@@ -23,6 +23,7 @@ const generateTokens = (user) => {
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
+
   try {
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = result.rows[0];
@@ -32,33 +33,11 @@ exports.login = async (req, res) => {
     }
 
     const { accessToken, refreshToken } = generateTokens(user);
-
-    // Store refresh token in database
-    await pool.query(
-      'UPDATE users SET refresh_token = $1 WHERE id = $2',
-      [refreshToken, user.id]
-    );
-
-    // Set cookies
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 10 * 60 * 1000 // 10 minutes
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    res.json({ 
-      user: { id: user.id, username: user.username, role: user.role }
-    });
+    res.cookie('accessToken', accessToken, { httpOnly: true });
+    res.cookie('refreshToken', refreshToken, { httpOnly: true });
+    res.json({ message: 'Login successful', user: { id: user.id, username: user.username } });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -150,6 +129,12 @@ exports.logout = async (req, res) => {
 
 exports.register = async (req, res) => {
   const { username, password, role } = req.body;
+
+  // Check password complexity
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: 'Password does not meet complexity requirements.' });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING *', [username, hashedPassword, role]);
@@ -159,4 +144,9 @@ exports.register = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};
+
+const isValidPassword = (password) => {
+  // Implement your password complexity logic here
+  return password.length >= 8; // Example: minimum length of 8 characters
 };
