@@ -6,19 +6,25 @@ const jwt = require('jsonwebtoken');
 
 
 const generateTokens = (user) => {
-  const accessToken = jwt.sign(
-    { userId: user.id, username: user.username },
-    process.env.JWT_SECRET,
-    { expiresIn: '10m' }
-  );
+  console.log('Generating tokens for user:', user); // Debug
+  try {
+    const accessToken = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
 
-  const refreshToken = jwt.sign(
-    { userId: user.id },
-    process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '10m' }
-  );
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: '7d' }
+    );
 
-  return { accessToken, refreshToken };
+    return { accessToken, refreshToken };
+  } catch (error) {
+    console.error('Error generating tokens:', error.message);
+    throw new Error('Token generation failed');
+  }
 };
 
 exports.login = async (req, res) => {
@@ -33,16 +39,18 @@ exports.login = async (req, res) => {
     }
 
     const { accessToken, refreshToken } = generateTokens(user);
-    res.cookie('accessToken', accessToken, { httpOnly: true });
-    res.cookie('refreshToken', refreshToken, { httpOnly: true });
-    res.json({ message: 'Login successful', user: { id: user.id, username: user.username, role:user.role } });
+    console.log('Tokens generated successfully'); // Debug
+    console.log('AccessToken:', accessToken);
+    console.log('RefreshToken:', refreshToken);
+ 
+    res.json({ message: 'Login successful', accessToken, user: { id: user.id, username: user.username, role:user.role} });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 exports.refresh = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.body.refreshToken; // Expect refreshToken in the request body
 
   if (!refreshToken) {
     return res.status(401).json({ error: 'Refresh token not found' });
@@ -72,22 +80,8 @@ exports.refresh = async (req, res) => {
       [newRefreshToken, user.id]
     );
 
-    // Set new cookies
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 10 * 60 * 1000
-    });
 
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    res.json({ message: 'Token refreshed successfully' });
+    res.json({ message: 'Token refreshed successfully', accessToken });
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       return res.status(403).json({ error: 'Invalid refresh token' });

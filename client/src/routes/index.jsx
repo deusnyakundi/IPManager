@@ -13,7 +13,7 @@ import ManageVCIDRanges from '../components/admin/ManageVCIDRanges';
 import ConfigurationGenerator from '../components/config/ConfigurationGenerator';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
 import PseudowireGenerator from '../components/config/PseudowireGenerator';
-import ProtectedRoute from '../components/ProtectedRoute';
+
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -23,28 +23,17 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
       <Route path="/logout" element={user ? <Login /> : <Navigate to="/login" replace />} />
-      <Route path="/" element={
-        user ? (
-          console.log('Rendering Dashboard') || <Dashboard />
-        ) : (
-          <Navigate to="/login" replace />
-        )
-      } />
+      <Route path="/" element={user ? (<Dashboard />) : (<Navigate to="/login" replace />)} />
       <Route path="/generate-ip" element={user ? <SiteSubmission /> : <Navigate to="/login" replace />} />
       <Route path="/admin" element={user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" replace />} />
       <Route path="/vlan-ranges" element={user?.role === 'admin' ? <ManageVLANRanges/> : <Navigate to="/" replace />} />
       <Route path="/ip-blocks" element={user?.role === 'admin' ? <ManageIPBlocks/> : <Navigate to="/" replace />} />
       <Route path="/regions" element={user?.role === 'admin' ? <ManageRegions/> : <Navigate to="/" replace />} /> 
-
-      <Route path="/vcid-ranges" element={
-        console.log('Rendering VCID route') ||
-        user?.role === 'admin' ? <ManageVCIDRanges/> : <Navigate to="/" replace />
-      } />
+      <Route path="/vcid-ranges" element={user?.role === 'admin' ? <ManageVCIDRanges/> : <Navigate to="/" replace />} />
       <Route path="/config-generator" element={user?.role === 'admin' ? <ConfigurationGenerator/> : <Navigate to="/" replace />} />
       <Route path="/infra-manager" element={user?.role === 'admin' ? <InfrastructureManager/> : <Navigate to="/" replace />} />
       <Route path="/sites" element={user?.role === 'admin' ? <SitesManagement/> : <Navigate to="/" replace />} />
       <Route path="/pseudowire-generator" element={user?.role === 'admin' ? <PseudowireGenerator /> : <Navigate to="/" replace />} />
-
       
     </Routes>
   );

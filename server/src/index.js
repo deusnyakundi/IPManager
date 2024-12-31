@@ -34,7 +34,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://example.com"], // Adjust as needed
+      scriptSrc: ["'self'", "https://localhost:9000"], // Adjust as needed
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },

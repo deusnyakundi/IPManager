@@ -1,38 +1,23 @@
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext'; // Import AuthContext to access token and refreshToken logic
 
+// Create an Axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:9000/api',
+  baseURL: 'http://localhost:9000/api', // Replace with your backend's base URL
   headers: {
     'Content-Type': 'application/json',
-    withCredentials: true
   },
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && error.response?.data?.shouldRefresh && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        await api.post('/auth/refresh');
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Refresh token failed, redirect to login
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
+// Request Interceptor: Add Authorization header if access token exists in memory
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Skip adding Authorization header for login requests
+    if (config.url === '/auth/login') {
+      return config;
+    }
+
+    const { token } = useAuth(); // Retrieve token from AuthContext
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -41,23 +26,47 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response Interceptor: Handle token expiration and refresh logic
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  (response) => response, // Pass through successful responses
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status === 401 && // Unauthorized error
+      error.response?.data?.shouldRefresh && // Backend indicates token should be refreshed
+      !originalRequest._retry // Avoid infinite retry loops
+    ) {
+      originalRequest._retry = true; // Mark request as retried
+
+      try {
+        const { refreshToken } = useAuth(); // Access refreshToken logic from AuthContext
+        await refreshToken(); // Attempt to refresh token
+
+        const { token } = useAuth(); // Retrieve updated token
+        originalRequest.headers.Authorization = `Bearer ${token}`; // Update request with new token
+
+        return api(originalRequest); // Retry the original request
+      } catch (refreshError) {
+        // If token refresh fails, redirect to login and clear session
+        console.error('Token refresh failed:', refreshError);
+        const { logout } = useAuth(); // Access logout function from AuthContext
+        logout();
+        window.location.href = '/login'; // Redirect to login
+        return Promise.reject(refreshError);
+      }
     }
-    return Promise.reject(error);
+
+    return Promise.reject(error); // Reject other errors
   }
 );
 
+// Exporting API modules for specific backend functionalities
 export const ipAPI = {
-    getIPBlocks: () => api.get('/ip/blocks'),
-    createIPBlock: (data) => api.post('/ip/blocks', data),
-    deleteIPBlock: (id) => api.delete(`/ip/blocks/${id}`),
-  };
+  getIPBlocks: () => api.get('/ip/blocks'),
+  createIPBlock: (data) => api.post('/ip/blocks', data),
+  deleteIPBlock: (id) => api.delete(`/ip/blocks/${id}`),
+};
 
 export const ipranClusterAPI = {
   getClusters: () => api.get('/ipran-clusters'),
@@ -84,7 +93,6 @@ export const userAPI = {
   deleteUser: (id) => api.delete(`/users/${id}`),
 };
 
-// Define the VLAN API functions
 export const vlanAPI = {
   getVLANRanges: () => api.get('/vlans/ranges'),
   createVLANRange: (data) => api.post('/vlans/ranges', data),
@@ -97,7 +105,6 @@ export const vlanRangeAPI = {
   deleteVLANRange: (id) => api.delete(`/vlan-ranges/ranges/${id}`),
 };
 
-// Define the Site API functions
 export const siteAPI = {
   createSite: (data, config) => api.post('/sites/generate-ip', data, config),
   getSites: () => api.get('/sites'),
@@ -105,19 +112,19 @@ export const siteAPI = {
   generateIP: (siteId) => api.post('/sites/generate-ip', { siteId }),
   getAllSites: (params = {}) => {
     const queryParams = new URLSearchParams();
-    
+
     if (params.search) {
       queryParams.append('search', params.search);
     }
-    
+
     if (params.region_ids?.length) {
       queryParams.append('region_ids', params.region_ids.join(','));
     }
-    
+
     if (params.status && params.status !== 'all') {
       queryParams.append('status', params.status);
     }
-    
+
     return api.get(`/sites?${queryParams.toString()}`);
   },
 };
