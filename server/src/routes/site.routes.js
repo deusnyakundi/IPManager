@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const siteController = require('../controllers/site.controller');
+const { authenticateToken } = require('../middleware/auth.middleware');
+
+router.use(authenticateToken); // Protect all routes in this router
 
 // Site Management Routes
 router.get('/', siteController.getAllSites);

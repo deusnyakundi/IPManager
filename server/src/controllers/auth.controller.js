@@ -80,7 +80,8 @@ exports.refresh = async (req, res) => {
       [newRefreshToken, user.id]
     );
 
-
+    console.log('Refresh Token generated and issued successfully'); // Debug
+    console.log('AccessToken:', accessToken);
     res.json({ message: 'Token refreshed successfully', accessToken });
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

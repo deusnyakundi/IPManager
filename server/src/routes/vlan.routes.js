@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const vlanController = require('../controllers/vlan.controller');
+const { authenticateToken } = require('../middleware/auth.middleware');
+
+router.use(authenticateToken); // Protect all routes in this router
 
 // VLAN Range routes
 router.get('/ranges', vlanController.getVLANRanges);

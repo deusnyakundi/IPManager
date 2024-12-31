@@ -53,8 +53,7 @@ const Dashboard = () => {
     oltByRegion: [],
     oltByMSP: [],
     oltByType: {
-      adrian: 0,
-      egypro: 0,
+  
       huawei: 0,
       nokia: 0
     },
@@ -81,7 +80,7 @@ const Dashboard = () => {
       // Calculate statistics
       const regionCounts = assignments.reduce((acc, site) => {
         if (site.region_name) {
-          acc[site.region_name] = (acc[site.region_name] || 0) + Number(site.olt_count);
+          acc[site.region_name] = (acc[site.region_name] || 0) + Number(site.site_count);
         }
         return acc;
       }, {});
@@ -104,7 +103,7 @@ const Dashboard = () => {
 
       const mspCounts = assignments.reduce((acc, site) => {
         if (site.msp_name) {
-          acc[site.msp_name] = (acc[site.msp_name] || 0) + Number(site.olt_count);
+          acc[site.msp_name] = (acc[site.msp_name] || 0) + Number(site.site_count);
         }
         return acc;
       }, {});
@@ -116,22 +115,22 @@ const Dashboard = () => {
 
       // Count unique sites (base names without 02, 03, 04 suffixes)
       const uniqueSites = assignments.reduce((acc, site) => {
-        const baseSiteName = site.base_name.replace(/0[2-9]$/, '');
+        const baseSiteName = site.base_name.replace(/(OLT.*)/, 'OLT').trim(); // Correct regex
+        acc.add(baseSiteName);
         acc.add(baseSiteName);
         return acc;
       }, new Set()).size;
+      console.log("Unique Sites Set:", uniqueSites);
 
       // Count vendor types
       const vendorCounts = assignments.reduce((acc, site) => {
         const vendorTypes = site.vendor_types ? site.vendor_types.split(',') : [];
         vendorTypes.forEach(type => {
-          if (type === 'adrian') acc.adrian += Number(site.olt_count);
-          else if (type === 'egypro') acc.egypro += Number(site.olt_count);
-          else if (type === 'huawei') acc.huawei += Number(site.olt_count);
+          if (type === 'huawei') acc.adrian += Number(site.olt_count);
           else if (type === 'nokia') acc.nokia += Number(site.olt_count);
         });
         return acc;
-      }, { adrian: 0, egypro: 0, huawei: 0, nokia: 0 });
+      }, {  huawei: 0, nokia: 0 });
 
       console.log('Processed stats:', {
         totalOLTs,
@@ -474,8 +473,7 @@ const Dashboard = () => {
                     <ResponsiveContainer width="100%" height="90%">
                       <BarChart 
                         data={[
-                          { name: 'Adrian', value: stats.oltByType.adrian },
-                          { name: 'Egypro', value: stats.oltByType.egypro },
+
                           { name: 'Huawei', value: stats.oltByType.huawei },
                           { name: 'Nokia', value: stats.oltByType.nokia }
                         ]}
