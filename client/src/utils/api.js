@@ -1,24 +1,25 @@
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext'; // Import AuthContext to access token and refreshToken logic
+
+// Token helper function
+let token = null; // Store the token globally in this module
+
+export const setAuthToken = (newToken) => {
+  token = newToken;
+};
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:9000/api', // Replace with your backend's base URL
+  baseURL: 'http://localhost:9000/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor: Add Authorization header if access token exists in memory
+// Request Interceptor: Add Authorization header dynamically
 api.interceptors.request.use(
   (config) => {
     // Skip adding Authorization header for login requests
-    if (config.url === '/auth/login') {
-      return config;
-    }
-
-    const { token } = useAuth(); // Retrieve token from AuthContext
-    if (token) {
+    if (config.url !== '/auth/login' && token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -26,40 +27,44 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle token expiration and refresh logic
+// Response Interceptor: Handle 401 and token refresh
 api.interceptors.response.use(
   (response) => response, // Pass through successful responses
   async (error) => {
     const originalRequest = error.config;
-
+   // Check if the response status is 401 and the server indicates the token should be refreshed
     if (
-      error.response?.status === 401 && // Unauthorized error
-      error.response?.data?.shouldRefresh && // Backend indicates token should be refreshed
+      error.response?.status === 401 &&
+      error.response?.data?.shouldRefresh &&
       !originalRequest._retry // Avoid infinite retry loops
     ) {
       originalRequest._retry = true; // Mark request as retried
 
       try {
-        const { refreshToken } = useAuth(); // Access refreshToken logic from AuthContext
-        await refreshToken(); // Attempt to refresh token
+        // Make a request to refresh the token
+        const refreshResponse = await api.post('/auth/refresh', { refreshToken: token });
+        const { accessToken } = refreshResponse.data;
 
-        const { token } = useAuth(); // Retrieve updated token
-        originalRequest.headers.Authorization = `Bearer ${token}`; // Update request with new token
+        // Update token globally
+        setAuthToken(accessToken);
 
-        return api(originalRequest); // Retry the original request
+        // Retry the original request
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
       } catch (refreshError) {
-        // If token refresh fails, redirect to login and clear session
         console.error('Token refresh failed:', refreshError);
-        const { logout } = useAuth(); // Access logout function from AuthContext
-        logout();
-        window.location.href = '/login'; // Redirect to login
+
+        // Logout or redirect to login on failure
+        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
 
-    return Promise.reject(error); // Reject other errors
+    return Promise.reject(error);
   }
 );
+
+
 
 // Exporting API modules for specific backend functionalities
 export const ipAPI = {

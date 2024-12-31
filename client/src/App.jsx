@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import NavBar from "./components/layout/NavBar";
 import AppRoutes from "./routes/index";
+import React, { useState } from 'react';
 
 
 
