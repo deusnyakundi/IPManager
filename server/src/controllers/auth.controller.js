@@ -11,7 +11,7 @@ const generateTokens = (user) => {
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '15s' }
     );
 
     const refreshToken = jwt.sign(
@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
 
 exports.refresh = async (req, res) => {
   const refreshToken = req.cookies.refreshToken; // Get refresh token from HttpOnly cookie
-  console.log('Cookies:', req.cookies);
+  console.log('Cookies:', req.cookies.refreshToken);
 
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });
@@ -122,7 +122,7 @@ exports.refresh = async (req, res) => {
     });
 
     // Send the new access token in the response
-    res.json({ message: 'Token refreshed successfully', accessToken });
+    res.json({ message: 'Token refreshed successfully', accessToken, refreshToken });
   } catch (error) {
     console.error("Refresh Error:", error);
     if (error.name === 'JsonWebTokenError') {
