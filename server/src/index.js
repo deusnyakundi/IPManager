@@ -28,7 +28,13 @@ const app = express();
 
 app.use(morgan('dev'));
 app.use(express.json());
-app.use(cors());
+
+// Configure CORS with specific origin
+const corsOptions = {
+  origin: 'http://localhost:5173', // Replace with your frontend's origin
+  credentials: true, // Important: Allow sending cookies
+};
+app.use(cors(corsOptions)); // Enable CORS for all routes
 
 app.use(helmet({
   contentSecurityPolicy: {

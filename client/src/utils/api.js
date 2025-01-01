@@ -1,66 +1,72 @@
+// Frontend (Axios Interceptor)
 import axios from 'axios';
 
-// Token helper function
-let token = null; // Store the token globally in this module
+let accessToken = null; // Store access token in memory (not ideal for long-term storage)
 
+// Function to update the access token
 export const setAuthToken = (newToken) => {
-  token = newToken;
+  accessToken = newToken;
 };
 
-// Create an Axios instance
+// Create an Axios instance with base URL and content type
 const api = axios.create({
   baseURL: 'http://localhost:9000/api',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Crucial for sending and receiving cookies
 });
 
 // Request Interceptor: Add Authorization header dynamically
 api.interceptors.request.use(
   (config) => {
-    // Skip adding Authorization header for login requests
-    if (config.url !== '/auth/login' && token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Only add the Authorization header if it's not a login request AND we have a token
+    if (config.url !== '/auth/login' && accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-    return config;
+    return config; // Return the modified config
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error) // Reject the promise if there's an error
 );
 
-// Response Interceptor: Handle 401 and token refresh
+// Response Interceptor: Handle 401 errors and token refresh
 api.interceptors.response.use(
   (response) => response, // Pass through successful responses
   async (error) => {
     const originalRequest = error.config;
-   // Check if the response status is 401 and the server indicates the token should be refreshed
-    if (
-      error.response?.status === 401 &&
-      error.response?.data?.shouldRefresh &&
-      !originalRequest._retry // Avoid infinite retry loops
-    ) {
-      originalRequest._retry = true; // Mark request as retried
+
+    // Check if the error is a 401 Unauthorized and if the request hasn't been retried already
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Mark the request as retried
+
+      // Implement retry limit to prevent infinite loops
+      let retryCount = originalRequest._retryCount || 0;
+      if (retryCount >= 3) {
+        console.error("Too many retries. Logging out.");
+        window.location.href = '/login'; // Redirect to login
+        return Promise.reject(error); // Reject the promise
+      }
+      originalRequest._retryCount = retryCount + 1; // Increment the retry count
 
       try {
-        // Make a request to refresh the token
-        const refreshResponse = await api.post('/auth/refresh', { refreshToken: token });
-        const { accessToken } = refreshResponse.data;
+        // Make a request to refresh the token. No need to send the refresh token in the body if using cookies
+        const refreshResponse = await axios.post('/auth/refresh');
+        const { accessToken: newAccessToken } = refreshResponse.data;
 
-        // Update token globally
-        setAuthToken(accessToken);
+        // Update the access token
+        setAuthToken(newAccessToken);
 
-        // Retry the original request
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
+        // Retry the original request with the new access token
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest); // Retry the request
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
-
-        // Logout or redirect to login on failure
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+        window.location.href = '/login'; // Redirect to login on refresh failure
+        return Promise.reject(refreshError); // Reject the refresh error
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(error); // Reject other errors
   }
 );
 

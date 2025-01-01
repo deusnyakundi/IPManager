@@ -26,7 +26,7 @@ exports.authenticateToken = (req, res, next) => {
 
 // Middleware to verify refresh token and issue a new access token
 exports.refreshToken = (req, res) => {
-  const refreshToken = req.headers.authorization?.split(' ')[1]; // Get refresh token from Authorization header
+  const refreshToken = req.cookies.refreshToken; // Get refresh token from cookies
 
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });

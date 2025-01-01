@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const crypto = require('crypto'); // Import crypto for hashing
 // server/src/controllers/auth.controller.js
 
 
@@ -27,6 +27,8 @@ const generateTokens = (user) => {
   }
 };
 
+
+
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -42,6 +44,14 @@ exports.login = async (req, res) => {
     console.log('Tokens generated successfully'); // Debug
     console.log('AccessToken:', accessToken);
     console.log('RefreshToken:', refreshToken);
+
+        // Send tokens
+        res.cookie('accessToken', accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 15 * 60 * 1000, // 15 minutes
+        });
  
     res.json({ message: 'Login successful', accessToken, user: { id: user.id, username: user.username, role:user.role} });
   } catch (error) {
@@ -50,20 +60,23 @@ exports.login = async (req, res) => {
 };
 
 exports.refresh = async (req, res) => {
-  const refreshToken = req.body.refreshToken; // Expect refreshToken in the request body
+  const refreshToken = req.cookies.refreshToken; // Get refresh token from HttpOnly cookie
 
   if (!refreshToken) {
-    return res.status(401).json({ error: 'Refresh token not found' });
+    return res.status(401).json({ error: 'No refresh token provided' });
   }
 
   try {
-    // Verify refresh token
+    // Verify the refresh token
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-    // Check if refresh token exists in database
+    // Hash the received refresh token before querying the database
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    // Check if the refresh token hash exists in the database
     const result = await pool.query(
-      'SELECT * FROM users WHERE id = $1 AND refresh_token = $2',
-      [decoded.userId, refreshToken]
+      'SELECT * FROM users WHERE id = $1 AND refresh_token_hash = $2',
+      [decoded.userId, refreshTokenHash]
     );
 
     const user = result.rows[0];
@@ -74,47 +87,42 @@ exports.refresh = async (req, res) => {
     // Generate new tokens
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
 
-    // Update refresh token in database
+    // Hash the new refresh token before storing it in the database
+    const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+
+    // Update the refresh token hash in the database
     await pool.query(
-      'UPDATE users SET refresh_token = $1 WHERE id = $2',
-      [newRefreshToken, user.id]
+      'UPDATE users SET refresh_token_hash = $1 WHERE id = $2',
+      [newRefreshTokenHash, user.id]
     );
 
-    console.log('Refresh Token generated and issued successfully'); // Debug
-    console.log('AccessToken:', accessToken);
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true, // Important for security
+      secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+      sameSite: 'strict', // Protect against CSRF attacks
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (in milliseconds)
+    });
+
     res.json({ message: 'Token refreshed successfully', accessToken });
   } catch (error) {
+    console.error("Refresh Error:", error);
     if (error.name === 'JsonWebTokenError') {
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
 exports.logout = async (req, res) => {
   try {
-    // Clear refresh token in database
+    // Clear refresh token hash in database if a user is authenticated
     if (req.user) {
-      await pool.query(
-        'UPDATE users SET refresh_token = NULL WHERE id = $1',
-        [req.user.userId]
-      );
+      await pool.query('UPDATE users SET refresh_token_hash = NULL WHERE id = $1', [req.user.userId]);
     }
 
-    // Clear cookies
-    res.cookie('accessToken', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      expires: new Date(0)
-    });
-
-    res.cookie('refreshToken', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      expires: new Date(0)
-    });
+    // Clear both access and refresh tokens from HttpOnly cookies on the client-side
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
 
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
@@ -123,6 +131,20 @@ exports.logout = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
+
+  // Function to validate password complexity
+  const isValidPassword = (password) => {
+    // Regex for password complexity:
+    // - At least 8 characters
+    // - At least one lowercase letter
+    // - At least one uppercase letter
+    // - At least one digit
+    // - At least one special character
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+
   const { username, password, role } = req.body;
 
   // Check password complexity
@@ -141,7 +163,3 @@ exports.register = async (req, res) => {
   }
 };
 
-const isValidPassword = (password) => {
-  // Implement your password complexity logic here
-  return password.length >= 8; // Example: minimum length of 8 characters
-};
