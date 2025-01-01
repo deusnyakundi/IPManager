@@ -1,49 +1,35 @@
 const jwt = require('jsonwebtoken');
 
-// Middleware to authenticate access token from Authorization header
-exports.authenticateToken = (req, res, next) => {
-  // Get the token from the Authorization header
-  const accessToken = req.headers.authorization?.split(' ')[1]; // Extract token from 'Bearer <token>'
+// Middleware to authenticate access tokens
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
-  if (!accessToken) {
-    return res.status(401).json({ error: 'No token provided' });
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Access token is missing or invalid' });
   }
 
+  const token = authHeader.split(' ')[1]; // Extract the token from the header
+
   try {
-    const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
-    req.user = decoded; // Attach decoded user info to the request object
-    next(); // Proceed to the next middleware or route handler
+    // Verify the access token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Attach the user information to the request object
+    req.user = {
+      id: decoded.userId,
+      username: decoded.username,
+    };
+
+    // Continue to the next middleware or route handler
+    next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        error: 'Token expired',
-        shouldRefresh: true, // Flag to indicate the need to refresh the token
-      });
+      // If token is expired, inform the client to refresh the token
+      return res.status(401).json({ error: 'Access token expired. Please refresh your token.' });
     }
-    return res.status(403).json({ error: 'Invalid token' });
+
+    return res.status(403).json({ error: 'Invalid access token' });
   }
 };
 
-// Middleware to verify refresh token and issue a new access token
-exports.refreshToken = (req, res) => {
-  const refreshToken = req.cookies.refreshToken; // Get refresh token from cookies
-
-  if (!refreshToken) {
-    return res.status(401).json({ error: 'No refresh token provided' });
-  }
-
-  try {
-    // Verify the refresh token (assuming refresh tokens have a longer expiry)
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    const { userId } = decoded; // Extract user info or id from refresh token
-
-    // Generate a new access token
-    const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // Send the new access token back to the client
-    res.json({ accessToken });
-  } catch (error) {
-    console.error('Refresh token verification failed:', error);
-    return res.status(403).json({ error: 'Invalid refresh token' });
-  }
-};
+module.exports = authMiddleware;

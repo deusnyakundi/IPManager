@@ -33,31 +33,47 @@ exports.login = async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    // Check if the user exists
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = result.rows[0];
 
+    // Validate credentials
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user);
-    console.log('Tokens generated successfully'); // Debug
-    console.log('AccessToken:', accessToken);
-    console.log('RefreshToken:', refreshToken);
 
-        // Send tokens
-        res.cookie('accessToken', accessToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 15 * 60 * 1000, // 15 minutes
-        });
- 
-    res.json({ message: 'Login successful', accessToken, user: { id: user.id, username: user.username, role:user.role} });
+    // Hash the refresh token before saving it in the database
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    // Update the refresh token hash in the database
+    await pool.query(
+      'UPDATE users SET refresh_token_hash = $1 WHERE id = $2',
+      [refreshTokenHash, user.id]
+    );
+
+    // Send the refresh token as an HttpOnly cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true, // Prevent access by JavaScript
+      secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+      sameSite: 'strict', // Protect against CSRF
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    });
+
+    // Send the access token in the response
+    res.json({
+      message: 'Login successful',
+      accessToken,
+      user: { id: user.id, username: user.username, role: user.role },
+    });
   } catch (error) {
+    console.error('Login Error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 exports.refresh = async (req, res) => {
   const refreshToken = req.cookies.refreshToken; // Get refresh token from HttpOnly cookie
@@ -73,7 +89,7 @@ exports.refresh = async (req, res) => {
     // Hash the received refresh token before querying the database
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
 
-    // Check if the refresh token hash exists in the database
+    // Check if the hashed refresh token exists in the database
     const result = await pool.query(
       'SELECT * FROM users WHERE id = $1 AND refresh_token_hash = $2',
       [decoded.userId, refreshTokenHash]
@@ -96,13 +112,15 @@ exports.refresh = async (req, res) => {
       [newRefreshTokenHash, user.id]
     );
 
+    // Send the new refresh token as an HttpOnly cookie
     res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true, // Important for security
-      secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
-      sameSite: 'strict', // Protect against CSRF attacks
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (in milliseconds)
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    // Send the new access token in the response
     res.json({ message: 'Token refreshed successfully', accessToken });
   } catch (error) {
     console.error("Refresh Error:", error);
