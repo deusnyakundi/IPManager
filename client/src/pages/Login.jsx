@@ -88,7 +88,7 @@ const Login = () => {
         {/* Right Side for Login */}
         <Box
           sx={{
-            width: '40%',
+            width: '50%',
             height: '100%',
             display: 'flex',
             alignItems: 'center',
@@ -103,7 +103,7 @@ const Login = () => {
               width: '80%',
               maxWidth: '400px',
               textAlign: 'center',
-              borderRadius: '16px',
+              borderRadius: '26px',
               backgroundColor: theme ? '#424242' : '#ffffff',
             }}
           >
@@ -116,6 +116,7 @@ const Login = () => {
                 fullWidth
                 label="Username"
                 margin="normal"
+               
                 value={credentials.username}
                 onChange={(e) =>
                   setCredentials({ ...credentials, username: e.target.value })
@@ -123,7 +124,22 @@ const Login = () => {
                 required
                 error={!credentials.username}
                 helperText={!credentials.username && 'Username is required'}
-                sx={{ input: { color: theme ? '#fff' : '#000' } }}
+                sx={{ 
+                  input: { color: theme ? '#fff' : '#000',borderRadius: '26px',
+                  '&:focus': {borderColor: 'blue',  },
+                }, 
+                      '& .MuiOutlinedInput-root': {
+                  borderRadius: '26px', // Ensure border radius is applied to the input
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'blue', // Focused border color (optional)
+                  },
+                  '&.Mui-error fieldset': {
+                    borderColor: 'red', // Border color when there is an error
+                  },
+
+                },
+
+              }}
               />
               <TextField
                 fullWidth
@@ -137,7 +153,22 @@ const Login = () => {
                 required
                 error={!credentials.password}
                 helperText={!credentials.password && 'Password is required'}
-                sx={{ input: { color: theme ? '#fff' : '#000' } }}
+                sx={{ 
+                  input: { color: theme ? '#fff' : '#000',borderRadius: '26px',
+                  '&:focus': {borderColor: 'blue',  },
+                }, 
+                      '& .MuiOutlinedInput-root': {
+                  borderRadius: '26px', // Ensure border radius is applied to the input
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'blue', // Focused border color (optional)
+                  },
+                  '&.Mui-error fieldset': {
+                    borderColor: 'red', // Border color when there is an error
+                  },
+
+                },
+
+              }}
               />
               <Button
                 type="submit"

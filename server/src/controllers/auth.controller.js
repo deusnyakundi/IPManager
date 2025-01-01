@@ -6,7 +6,7 @@ const crypto = require('crypto'); // Import crypto for hashing
 
 
 const generateTokens = (user) => {
-  console.log('Generating tokens for user:', user); // Debug
+ console.log('Generating tokens for user:', user); // Debug
   try {
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username },
@@ -19,7 +19,7 @@ const generateTokens = (user) => {
       process.env.REFRESH_TOKEN_SECRET,
       { expiresIn: '7d' }
     );
-
+   console.log('Access Token', accessToken)
     return { accessToken, refreshToken };
   } catch (error) {
     console.error('Error generating tokens:', error.message);
@@ -77,6 +77,7 @@ exports.login = async (req, res) => {
 
 exports.refresh = async (req, res) => {
   const refreshToken = req.cookies.refreshToken; // Get refresh token from HttpOnly cookie
+  console.log('Cookies:', req.cookies);
 
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });

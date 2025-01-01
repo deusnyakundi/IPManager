@@ -21,6 +21,7 @@ const vlanRoutes = require('./routes/vlan.routes');
 const activityLogger = require('./middleware/activityLogger');
 const activityLogRoutes = require('./routes/activityLog.routes');
 const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ const app = express();
 
 app.use(morgan('dev'));
 app.use(express.json());
+app.use(cookieParser()); // Parse cookies
 
 // Configure CORS with specific origin
 const corsOptions = {

@@ -1,7 +1,11 @@
-const jwt = require('jsonwebtoken');
+
+import jwt from 'jsonwebtoken';
+
 
 // Middleware to authenticate access tokens
-const authMiddleware = (req, res, next) => {
+export const authenticateToken = (req, res, next) => {
+  console.log('Incoming Cookies:', req.headers.cookie); 
+  console.log('Incoming headers:', req.headers.authorization); 
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -32,4 +36,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+
