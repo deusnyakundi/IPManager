@@ -35,6 +35,7 @@ app.use(cookieParser()); // Parse cookies
 const corsOptions = {
   origin: 'http://localhost:5173', // Replace with your frontend's origin
   credentials: true, // Important: Allow sending cookies
+  secure:false,
 };
 app.use(cors(corsOptions)); // Enable CORS for all routes
 

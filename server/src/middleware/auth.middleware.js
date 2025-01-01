@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 
 // Middleware to authenticate access tokens
 export const authenticateToken = (req, res, next) => {
-  console.log('Incoming Cookies:', req.headers.cookie); 
+  console.log('Incoming Cookies:', req.cookies); 
   console.log('Incoming headers:', req.headers.authorization); 
   const authHeader = req.headers.authorization;
 
