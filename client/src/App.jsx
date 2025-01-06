@@ -4,12 +4,8 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import NavBar from "./components/layout/NavBar";
 import AppRoutes from "./routes/index";
-import React, { useState } from 'react';
-
-
 
 const theme = createTheme({
-  
   palette: {
     mode: 'dark',
     primary: {
@@ -20,16 +16,13 @@ const theme = createTheme({
       paper: '#1e1e1e',
     },
   },
-
   spacing: (factor) => `${0.5 * factor}rem`,
-
   components: {
     MuiFormControl: {
       styleOverrides: {
         root: {
           margin: '20px 0',
           width: '100%',
-          
         },
       },
     },
@@ -77,8 +70,6 @@ const theme = createTheme({
       },
     },
   },
-
-
 });
 
 function App() {
@@ -87,9 +78,7 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <NavBar>
-            <AppRoutes />
-          </NavBar>
+          <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

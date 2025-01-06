@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Container,
@@ -18,9 +18,19 @@ import { Brightness4, Brightness7 } from '@mui/icons-material';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, loading, error } = useAuth();
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [theme, setTheme] = useState(true); // true for dark, false for light
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the message from location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const toggleTheme = () => {
     setTheme(!theme);
@@ -28,14 +38,22 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSuccessMessage(''); // Clear any existing success message
 
     if (!credentials.username || !credentials.password) {
       return;
     }
 
-    const success = await login(credentials);
-    if (success) {
-      navigate('/');
+    try {
+      const success = await login(credentials);
+      if (success) {
+        navigate('/');
+      }
+    } catch (error) {
+      if (error.response?.data?.requirePasswordChange) {
+        // Redirect to password change page with userId
+        navigate(`/change-password/${error.response.data.userId}`);
+      }
     }
   };
 
@@ -111,6 +129,7 @@ const Login = () => {
               Login
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
+            {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth

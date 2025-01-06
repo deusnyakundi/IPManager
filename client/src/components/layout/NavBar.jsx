@@ -37,7 +37,8 @@ import {
   Logout as LogoutIcon,
   ViewStream as VCIDIcon,
   Build as NetworkSettingsIcon,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -94,6 +95,7 @@ const menuItems = [
   { path: '/config-generator', label: 'Configuration', icon: <SettingsIcon />, adminOnly: false },
   //{ path: '/network-settings', label: 'Network Settings', icon: <NetworkSettingsIcon />, adminOnly: true },
   { path: '/infra-manager', label: 'Infrastructure Manager', icon: <NetworkSettingsIcon />, adminOnly: true },
+  { path: '/admin', label: 'Admin Panel', icon: <AdminIcon />, adminOnly: true },
 ];
 
 const NavBar = ({ children }) => {
@@ -256,6 +258,11 @@ const NavBar = ({ children }) => {
             </MenuItem>
 
             <Divider />
+
+            <MenuItem onClick={() => navigate('/settings/security')}>
+              <PasswordIcon fontSize="small" />
+              Security Settings
+            </MenuItem>
 
             <MenuItem onClick={() => navigate('/change-password')}>
               <PasswordIcon fontSize="small" />

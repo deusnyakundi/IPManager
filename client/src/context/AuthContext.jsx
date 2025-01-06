@@ -1,41 +1,89 @@
-import React, { createContext, useContext, useState } from 'react';
-import api, { setAuthToken } from '../utils/api';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import api from '../utils/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const login = async (credentials) => {
-    try {
-      setLoading(true);
-      const response = await api.post('/auth/login', credentials);
-      const { accessToken, user } = response.data;
+    // Function to check authentication status
+    const checkAuth = async () => {
+        try {
+            const userResponse = await api.get('/auth/me');
+            setUser(userResponse.data);
+            setIsAuthenticated(true);
+        } catch (error) {
+            console.log('Auth check failed:', error);
+            setUser(null);
+            setIsAuthenticated(false);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      setAuthToken(accessToken); // Set token globally for interceptors
-      setUser(user);
-      return true;
-    } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
-      return false;
-    } finally {
-      setLoading(false);
+    // Check auth status when the app loads
+    useEffect(() => {
+        checkAuth();
+    }, []);
+
+    const login = async (credentials) => {
+        try {
+            const response = await api.post('/auth/login', credentials);
+            if (!response.data.requiresOTP) {
+                setUser(response.data.user);
+                setIsAuthenticated(true);
+            }
+            return response.data;
+        } catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            setUser(null);
+            setIsAuthenticated(false);
+            window.location.href = '/login';
+        }
+    };
+
+    const verifyOTP = async (userId, otp) => {
+        try {
+            const response = await api.post('/auth/verify-otp', { userId, otp });
+            if (response.data.user) {
+                setUser(response.data.user);
+                setIsAuthenticated(true);
+            }
+            return response.data;
+        } catch (error) {
+            console.error('OTP verification error:', error);
+            throw error;
+        }
+    };
+
+    if (loading) {
+        return <div>Loading...</div>;
     }
-  };
 
-  const logout = () => {
-    setAuthToken(null); // Clear token globally
-    setUser(null);
-    window.location.href = '/login'; // Redirect to login
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={{ user, isAuthenticated, login, logout, verifyOTP }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+

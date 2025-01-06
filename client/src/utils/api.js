@@ -1,13 +1,6 @@
 // Frontend (Axios Interceptor)
 import axios from 'axios';
 
-let accessToken = null; // Store access token in memory (not ideal for long-term storage)
-
-// Function to update the access token
-export const setAuthToken = (newToken) => {
-  accessToken = newToken;
-};
-
 // Create an Axios instance with base URL and content type
 const api = axios.create({
   baseURL: 'http://localhost:9000/api',
@@ -17,62 +10,98 @@ const api = axios.create({
   withCredentials: true, // Crucial for sending and receiving cookies
 });
 
-// Request Interceptor: Add Authorization header dynamically
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+};
+
+// Request Interceptor: Add Authorization header if needed
 api.interceptors.request.use(
   (config) => {
-    // Only add the Authorization header if it's not a login request AND we have a token
-    if (config.url !== '/auth/login' && accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    // Don't retry these endpoints
+    const noRetryEndpoints = ['/auth/refresh', '/auth/login', '/auth/logout'];
+    if (!noRetryEndpoints.includes(config.url)) {
+      config._retry = false; // Reset retry flag for each new request
     }
-    return config; // Return the modified config
+    return config;
   },
-  (error) => Promise.reject(error) // Reject the promise if there's an error
+  (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 errors and token refresh
+// Response Interceptor: Handle token refresh
 api.interceptors.response.use(
-  (response) => response, // Pass through successful responses
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if the error is a 401 Unauthorized and if the request hasn't been retried already
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark the request as retried
+    // Don't retry these endpoints
+    const noRetryEndpoints = ['/auth/refresh', '/auth/login', '/auth/logout'];
+    const noRedirectEndpoints = [...noRetryEndpoints, '/auth/me'];
 
-      // Implement retry limit to prevent infinite loops
-      let retryCount = originalRequest._retryCount || 0;
-      if (retryCount >= 3) {
-        console.error("Too many retries. Logging out.");
-        window.location.href = '/login'; // Redirect to login
-        return Promise.reject(error); // Reject the promise
+    // If the error is 401 and it's a refresh token request or login
+    if (error.response?.status === 401 && noRetryEndpoints.includes(originalRequest.url)) {
+      // Only redirect to login if not already there and not a /me request
+      if (!noRedirectEndpoints.includes(originalRequest.url) && window.location.pathname !== '/login') {
+        window.location.href = '/login';
       }
-      originalRequest._retryCount = retryCount + 1; // Increment the retry count
+      return Promise.reject(error);
+    }
+
+    // Handle token refresh for other 401 errors
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        try {
+          // Wait for the refresh to complete
+          await new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          });
+          return api(originalRequest);
+        } catch (err) {
+          return Promise.reject(err);
+        }
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
-        // Make a request to refresh the token. No need to send the refresh token in the body if using cookies
-        const refreshResponse = await axios.post('/auth/refresh');
-        const { accessToken: newAccessToken } = refreshResponse.data;
-
-        // Update the access token
-        setAuthToken(newAccessToken);
-
-        // Retry the original request with the new access token
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(originalRequest); // Retry the request
+        // Attempt to refresh the token
+        await api.post('/auth/refresh');
+        
+        // Process any queued requests
+        processQueue(null);
+        
+        // Reset the retry flag
+        originalRequest._retry = false;
+        
+        // Retry the original request
+        return api(originalRequest);
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-        window.location.href = '/login'; // Redirect to login on refresh failure
-        return Promise.reject(refreshError); // Reject the refresh error
+        processQueue(refreshError, null);
+        // Only redirect to login if not already there and not a /me request
+        if (!noRedirectEndpoints.includes(originalRequest.url) && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 
-    return Promise.reject(error); // Reject other errors
+    return Promise.reject(error);
   }
 );
 
-
-
-// Exporting API modules for specific backend functionalities
+// Export API modules
 export const ipAPI = {
   getIPBlocks: () => api.get('/ip/blocks'),
   createIPBlock: (data) => api.post('/ip/blocks', data),
@@ -102,6 +131,7 @@ export const userAPI = {
   getUsers: () => api.get('/users'),
   createUser: (user) => api.post('/users', user),
   deleteUser: (id) => api.delete(`/users/${id}`),
+  toggle2FA: (id, enabled) => api.post(`/users/${id}/toggle-2fa`, { enabled }),
 };
 
 export const vlanAPI = {
