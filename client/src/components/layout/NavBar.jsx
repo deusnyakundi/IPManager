@@ -73,6 +73,9 @@ const StyledAppBar = styled(AppBar, { shouldForwardProp: (prop) => prop !== 'ope
     },
     width: `calc(100% - ${collapsed ? COLLAPSED_WIDTH : open ? DRAWER_WIDTH : 0}px)`,
     marginLeft: collapsed ? COLLAPSED_WIDTH : open ? DRAWER_WIDTH : 0,
+    backgroundColor: theme.palette.background.paper,
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    boxShadow: 'none',
   }),
 );
 
