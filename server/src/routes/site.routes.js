@@ -10,7 +10,7 @@ router.get('/', siteController.getAllSites);
 router.post('/', siteController.createSite);
 
 // Export/Import routes
-router.get('/export/sites', siteController.exportSites);
+router.get('/export', siteController.exportSites);
 router.post('/import', siteController.importSites);
 
 // These routes should come after the specific routes
