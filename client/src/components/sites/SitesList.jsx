@@ -12,7 +12,6 @@ import {
   IconButton,
   Tooltip,
   Box,
-  Chip,
   styled
 } from '@mui/material';
 import { 
@@ -22,6 +21,15 @@ import {
 } from '@mui/icons-material';
 
 // Styled components for enhanced table design
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  padding: theme.spacing(1),
+  height: '32px',
+  '&.MuiTableCell-head': {
+    backgroundColor: theme.palette.background.default,
+    fontWeight: 600,
+  }
+}));
+
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
     backgroundColor: theme.palette.action.hover,
@@ -31,23 +39,11 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     cursor: 'pointer',
     transition: 'background-color 0.2s ease',
   },
-}));
-
-const StyledTableCell = styled(TableCell)(({ theme }) => ({
-  padding: theme.spacing(2),
-}));
-
-const StatusChip = styled(Chip)(({ theme, status }) => ({
-  borderRadius: '16px',
-  fontWeight: 'medium',
-  ...(status === 'active' && {
-    backgroundColor: theme.palette.success.light,
-    color: theme.palette.success.dark,
-  }),
-  ...(status === 'inactive' && {
-    backgroundColor: theme.palette.error.light,
-    color: theme.palette.error.dark,
-  }),
+  // Set a consistent height for table rows
+  '& > .MuiTableCell-root': {
+    height: '32px',
+    padding: theme.spacing(1),
+  }
 }));
 
 const SitesList = ({ 
@@ -56,18 +52,17 @@ const SitesList = ({
   onEdit, 
   onDelete,
   onGenerateIP,
-  // Missing pagination props
-  // page,
-  // rowsPerPage,
-  // onPageChange,
-  // onRowsPerPageChange,
-  // totalCount 
+  page,
+  rowsPerPage,
+  onPageChange,
+  onRowsPerPageChange,
+  totalRows 
 }) => {
   const renderTableContent = () => {
     if (loading) {
       return [...Array(5)].map((_, index) => (
         <StyledTableRow key={`loading-${index}`}>
-          {[...Array(5)].map((_, cellIndex) => (
+          {[...Array(6)].map((_, cellIndex) => (
             <StyledTableCell key={`loading-cell-${cellIndex}`}>
               <Skeleton animation="wave" />
             </StyledTableCell>
@@ -99,7 +94,7 @@ const SitesList = ({
         <StyledTableCell>{site.name}</StyledTableCell>
         <StyledTableCell>
           {site.region ? (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
               {site.region.name}
             </Typography>
           ) : '-'}
@@ -107,7 +102,7 @@ const SitesList = ({
         <StyledTableCell>
           {site.ipAddress ? (
             <Tooltip title="IP Address" arrow>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                 {site.ipAddress}
               </Typography>
             </Tooltip>
@@ -115,47 +110,56 @@ const SitesList = ({
         </StyledTableCell>
         <StyledTableCell>
           {site.msp ? (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
               {site.msp.name}
             </Typography>
           ) : '-'}
         </StyledTableCell>
         <StyledTableCell>
           {site.ipranCluster ? (
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
               {site.ipranCluster}
             </Typography>
           ) : '-'}
         </StyledTableCell>
         <StyledTableCell>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title="Edit Site">
               <IconButton 
                 size="small" 
-                onClick={() => onEdit(site)}
-                sx={{ '&:hover': { color: 'primary.main' } }}
+                onClick={() => onEdit?.(site)}
+                sx={{ 
+                  padding: 0.5,
+                  '&:hover': { color: 'primary.main' } 
+                }}
               >
-                <EditIcon fontSize="small" />
+                <EditIcon sx={{ fontSize: '1.25rem' }} />
               </IconButton>
             </Tooltip>
             {!site.ipAddress && (
               <Tooltip title="Generate IP">
                 <IconButton 
                   size="small" 
-                  onClick={() => onGenerateIP(site)}
-                  sx={{ '&:hover': { color: 'success.main' } }}
+                  onClick={() => onGenerateIP?.(site)}
+                  sx={{ 
+                    padding: 0.5,
+                    '&:hover': { color: 'success.main' } 
+                  }}
                 >
-                  <NetworkIcon fontSize="small" />
+                  <NetworkIcon sx={{ fontSize: '1.25rem' }} />
                 </IconButton>
               </Tooltip>
             )}
             <Tooltip title="Delete Site">
               <IconButton 
                 size="small" 
-                onClick={() => onDelete(site)}
-                sx={{ '&:hover': { color: 'error.main' } }}
+                onClick={() => onDelete?.(site)}
+                sx={{ 
+                  padding: 0.5,
+                  '&:hover': { color: 'error.main' } 
+                }}
               >
-                <DeleteIcon fontSize="small" />
+                <DeleteIcon sx={{ fontSize: '1.25rem' }} />
               </IconButton>
             </Tooltip>
           </Box>
@@ -165,23 +169,16 @@ const SitesList = ({
   };
 
   return (
-    <TableContainer 
-      component={Paper} 
-      sx={{ 
-        boxShadow: 2,
-        borderRadius: 2,
-        overflow: 'hidden'
-      }}
-    >
-      <Table>
+    <TableContainer>
+      <Table size="small">
         <TableHead>
-          <TableRow sx={{ backgroundColor: 'background.default' }}>
+          <TableRow>
             <StyledTableCell>Site Name</StyledTableCell>
             <StyledTableCell>Region</StyledTableCell>
             <StyledTableCell>IP Address</StyledTableCell>
             <StyledTableCell>MSP</StyledTableCell>
             <StyledTableCell>IPRAN Cluster</StyledTableCell>
-            <StyledTableCell>Actions</StyledTableCell>
+            <StyledTableCell align="left" sx={{ width: '120px' }}>Actions</StyledTableCell>
           </TableRow>
         </TableHead>
         <TableBody>

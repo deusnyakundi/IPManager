@@ -6,7 +6,9 @@ import {
   Typography,
   Container,
   Snackbar,
-  Alert
+  Alert,
+  Paper,
+  Grid
 } from '@mui/material';
 import SitesList from '../components/sites/SitesList';
 import SiteForm from '../components/sites/SiteForm';
@@ -133,7 +135,6 @@ const Sites = () => {
         severity: 'error'
       });
     }
-    // Clear the input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -153,45 +154,127 @@ const Sites = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Sites Management
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <Button variant="contained" onClick={() => setFormDialogOpen(true)}>
-            Add Site
-          </Button>
-          <Button variant="outlined" onClick={handleExport}>
-            Export
-          </Button>
-          <Button
-            variant="outlined"
-            component="label"
+    <Container 
+      maxWidth="xl" 
+      disableGutters 
+      sx={{ 
+        height: '100vh',
+        minWidth: 0,
+        overflow: 'auto',
+        backgroundColor: 'background.paper'
+      }}
+    >
+      <Box sx={{ mb: 0.5, minWidth: 'min-content' }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1,
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            borderRadius: 0,
+          }}
+        >
+          <Grid 
+            container 
+            justifyContent="space-between" 
+            alignItems="center" 
+            spacing={0}
+            sx={{ 
+              minHeight: '32px',
+              py: 0,
+              m: 0
+            }}
           >
-            Import
-            <input
-              ref={fileInputRef}
-              type="file"
-              hidden
-              accept=".xlsx,.xls"
-              onChange={handleImport}
+            <Grid item>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontSize: '1.25rem',
+                  lineHeight: 1,
+                  m: 0,
+                  color: 'text.primary',
+                }}
+              >
+                Sites Management
+              </Typography>
+            </Grid>
+            <Grid item>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                alignItems: 'center',
+                height: '32px'
+              }}>
+                <Button 
+                  variant="contained" 
+                  onClick={() => setFormDialogOpen(true)}
+                  size="small"
+                  sx={{ 
+                    height: '32px',
+                    minHeight: '32px'
+                  }}
+                >
+                  Add Site
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  onClick={handleExport}
+                  size="small"
+                  sx={{ 
+                    height: '32px',
+                    minHeight: '32px'
+                  }}
+                >
+                  Export
+                </Button>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  size="small"
+                  sx={{ 
+                    height: '32px',
+                    minHeight: '32px'
+                  }}
+                >
+                  Import
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    accept=".xlsx,.xls"
+                    onChange={handleImport}
+                  />
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ mt: 1, borderRadius: 0 }}>
+          <Box sx={{ p: 1 }}>
+            <SitesList 
+              sites={sites}
+              loading={loading}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              totalRows={totalRows}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
             />
-          </Button>
-        </Box>
+          </Box>
+        </Paper>
       </Box>
 
-      <SitesList 
-        sites={sites}
-        loading={loading}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        totalRows={totalRows}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-      />
-
-      <Dialog open={formDialogOpen} onClose={() => setFormDialogOpen(false)}>
+      <Dialog 
+        open={formDialogOpen} 
+        onClose={() => setFormDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 0
+          }
+        }}
+      >
         <SiteForm onSubmit={handleSubmit} onClose={() => setFormDialogOpen(false)} />
       </Dialog>
 
@@ -199,6 +282,7 @@ const Sites = () => {
         open={notification.open}
         autoHideDuration={6000}
         onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert 
           onClose={handleCloseNotification} 
