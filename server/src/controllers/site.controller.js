@@ -880,32 +880,24 @@ const siteController = {
         throw new Error('No sites found to export');
       }
 
-      // Create CSV header
-      const headers = ['Site Name', 'IP Address', 'Region', 'MSP', 'IPRAN Cluster'];
-      
-      // Create CSV rows
-      const rows = result.rows.map(site => [
-        site['Site Name'] || '',
-        site['IP Address'] || '',
-        site['Region'] || '',
-        site['MSP'] || '',
-        site['IPRAN Cluster'] || ''
-      ]);
+      // Create workbook and worksheet
+      const workbook = xlsx.utils.book_new();
+      const worksheet = xlsx.utils.json_to_sheet(result.rows, {
+        header: ['Site Name', 'IP Address', 'Region', 'MSP', 'IPRAN Cluster']
+      });
 
-      // Combine headers and rows
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => 
-          cell ? `"${cell.toString().replace(/"/g, '""')}"` : ''
-        ).join(','))
-      ].join('\n');
+      // Add worksheet to workbook
+      xlsx.utils.book_append_sheet(workbook, worksheet, 'Sites');
 
-      // Set response headers
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=sites.csv');
+      // Generate buffer
+      const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-      // Send the CSV content
-      res.send(csvContent);
+      // Set response headers for Excel file
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=sites-export.xlsx');
+
+      // Send the Excel file
+      res.send(buffer);
 
     } catch (error) {
       console.error('Error exporting sites:', error);
