@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const logger = require('../services/logger.service');
+const xlsx = require('xlsx');
 
 const siteController = {
   // Get all sites
@@ -918,7 +919,19 @@ const siteController = {
   importSites: async (req, res) => {
     const client = await pool.connect();
     try {
-      const { sites } = req.body;
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      // Parse Excel file
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const sites = xlsx.utils.sheet_to_json(worksheet);
+
+      if (!sites || sites.length === 0) {
+        return res.status(400).json({ message: 'No sites found in file' });
+      }
+
       const results = [];
       const errors = [];
 
@@ -936,22 +949,31 @@ const siteController = {
         try {
           await client.query('BEGIN');
 
+          // Map Excel columns to site properties
+          const siteData = {
+            name: site['Site Name'] || site.name,
+            ip: site['IP Address'] || site.ip,
+            region: site['Region'] || site.region,
+            msp: site['MSP'] || site.msp,
+            ipranCluster: site['IPRAN Cluster'] || site.ipranCluster
+          };
+
           // Look up IDs from the maps
-          const region_id = site.region ? regionMap.get(site.region.toLowerCase()) : null;
-          const msp_id = site.msp ? mspMap.get(site.msp.toLowerCase()) : null;
-          const ipran_cluster_id = site.ipranCluster ? clusterMap.get(site.ipranCluster.toLowerCase()) : null;
+          const region_id = siteData.region ? regionMap.get(siteData.region.toLowerCase()) : null;
+          const msp_id = siteData.msp ? mspMap.get(siteData.msp.toLowerCase()) : null;
+          const ipran_cluster_id = siteData.ipranCluster ? clusterMap.get(siteData.ipranCluster.toLowerCase()) : null;
 
           // Validate required relationships
-          if (site.region && !region_id) {
-            throw new Error(`Region "${site.region}" not found`);
+          if (siteData.region && !region_id) {
+            throw new Error(`Region "${siteData.region}" not found`);
           }
 
           // Check if site exists by IP
           let existingSite = null;
-          if (site.ip) {
+          if (siteData.ip) {
             const ipCheck = await client.query(
               'SELECT * FROM sites WHERE ip = $1',
-              [site.ip]
+              [siteData.ip]
             );
             if (ipCheck.rows.length > 0) {
               existingSite = ipCheck.rows[0];
@@ -971,8 +993,8 @@ const siteController = {
                WHERE id = $6
                RETURNING *`,
               [
-                site.name,
-                site.ip,
+                siteData.name,
+                siteData.ip,
                 region_id,
                 msp_id,
                 ipran_cluster_id,
@@ -981,13 +1003,13 @@ const siteController = {
             );
           } else {
             // Check if IP is already used by another site
-            if (site.ip) {
+            if (siteData.ip) {
               const ipUsed = await client.query(
                 'SELECT id FROM sites WHERE ip = $1',
-                [site.ip]
+                [siteData.ip]
               );
               if (ipUsed.rows.length > 0) {
-                throw new Error(`IP address ${site.ip} is already in use`);
+                throw new Error(`IP address ${siteData.ip} is already in use`);
               }
             }
 
@@ -1002,8 +1024,8 @@ const siteController = {
               ) VALUES ($1, $2, $3, $4, $5)
               RETURNING *`,
               [
-                site.name,
-                site.ip || null,
+                siteData.name,
+                siteData.ip || null,
                 region_id,
                 msp_id,
                 ipran_cluster_id
@@ -1016,13 +1038,13 @@ const siteController = {
         } catch (error) {
           await client.query('ROLLBACK');
           errors.push({ 
-            site: site.name, 
+            site: site['Site Name'] || site.name || 'Unknown', 
             error: error.message,
             details: {
-              providedRegion: site.region,
-              providedMSP: site.msp,
-              providedCluster: site.ipranCluster,
-              providedIP: site.ip
+              providedRegion: site['Region'] || site.region,
+              providedMSP: site['MSP'] || site.msp,
+              providedCluster: site['IPRAN Cluster'] || site.ipranCluster,
+              providedIP: site['IP Address'] || site.ip
             }
           });
         }
@@ -1033,6 +1055,7 @@ const siteController = {
         res.json({ 
           success: results,
           errors: errors,
+          imported: results.length,
           summary: `Successfully imported ${results.length} sites, ${errors.length} failures`
         });
       } else {
