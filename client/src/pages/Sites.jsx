@@ -18,6 +18,7 @@ const Sites = () => {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [editingSite, setEditingSite] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const fileInputRef = useRef(null);
   const [page, setPage] = useState(0);
@@ -64,22 +65,37 @@ const Sites = () => {
 
   const handleSubmit = async (data) => {
     try {
-      await api.post('/sites', data);
+      if (editingSite) {
+        await api.put(`/sites/${editingSite.id}`, data);
+        setNotification({
+          open: true,
+          message: 'Site updated successfully',
+          severity: 'success'
+        });
+      } else {
+        await api.post('/sites', data);
+        setNotification({
+          open: true,
+          message: 'Site created successfully',
+          severity: 'success'
+        });
+      }
       fetchSites();
       setFormDialogOpen(false);
-      setNotification({
-        open: true,
-        message: 'Site created successfully',
-        severity: 'success'
-      });
+      setEditingSite(null);
     } catch (error) {
-      console.error('Error creating site:', error);
+      console.error('Error saving site:', error);
       setNotification({
         open: true,
-        message: 'Error creating site',
+        message: `Error ${editingSite ? 'updating' : 'creating'} site`,
         severity: 'error'
       });
     }
+  };
+
+  const handleEdit = (site) => {
+    setEditingSite(site);
+    setFormDialogOpen(true);
   };
 
   const handleExport = async () => {
@@ -261,6 +277,7 @@ const Sites = () => {
               totalRows={totalRows}
               onPageChange={handlePageChange}
               onRowsPerPageChange={handleRowsPerPageChange}
+              onEdit={handleEdit}
             />
           </Box>
         </Paper>
@@ -268,14 +285,24 @@ const Sites = () => {
 
       <Dialog 
         open={formDialogOpen} 
-        onClose={() => setFormDialogOpen(false)}
+        onClose={() => {
+          setFormDialogOpen(false);
+          setEditingSite(null);
+        }}
         PaperProps={{
           sx: {
             borderRadius: 0
           }
         }}
       >
-        <SiteForm onSubmit={handleSubmit} onClose={() => setFormDialogOpen(false)} />
+        <SiteForm 
+          onSubmit={handleSubmit} 
+          onClose={() => {
+            setFormDialogOpen(false);
+            setEditingSite(null);
+          }}
+          initialData={editingSite}
+        />
       </Dialog>
 
       <Snackbar

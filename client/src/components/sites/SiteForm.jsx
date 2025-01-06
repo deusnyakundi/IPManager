@@ -43,7 +43,7 @@ const FormSection = styled(Box)(({ theme }) => ({
   },
 }));
 
-const SiteForm = ({ site, onSubmit, onClose }) => {
+const SiteForm = ({ initialData, onSubmit, onClose }) => {
   const [formData, setFormData] = useState({
     name: '',
     ip: '',
@@ -59,18 +59,15 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
   const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
-    if (site) {
-      console.log('Setting form data for site:', site);
-      const siteIp = site.ip || site.ipAddress || '';
-      setFormData(prevData => ({
-        name: site.name || '',
-        ip: siteIp,
-        region_id: site.region_id || site.regionId || '',
-        msp_id: site.msp_id || site.mspId || '',
-        ipran_cluster_id: site.ipran_cluster_id || site.ipranClusterId || ''
-      }));
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        ip: initialData.ipAddress || initialData.ip || '',
+        region_id: initialData.regionId || initialData.region_id || '',
+        msp_id: initialData.mspId || initialData.msp_id || '',
+        ipran_cluster_id: initialData.ipranClusterId || initialData.ipran_cluster_id || ''
+      });
     } else {
-      // Reset form when creating new site
       setFormData({
         name: '',
         ip: '',
@@ -82,7 +79,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
     fetchRegions();
     fetchMsps();
     fetchIPRANClusters();
-  }, [site]);
+  }, [initialData]);
 
   const fetchRegions = async () => {
     try {
@@ -164,8 +161,8 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
         ipran_cluster_id: formData.ipran_cluster_id,
       };
 
-      if (site && site.ip) {
-        submitData.ip = site.ip;
+      if (initialData && initialData.ip) {
+        submitData.ip = initialData.ip;
       } else if (formData.ip) {
         submitData.ip = formData.ip;
       }
@@ -195,7 +192,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}>
-        {site ? 'Edit Site' : 'Add New Site'}
+        {initialData ? 'Edit Site' : 'Add New Site'}
       </DialogTitle>
 
       <StyledDialogContent>
@@ -262,7 +259,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             helperText={errors.ip}
             fullWidth
             size="small"
-            disabled={!!site}
+            disabled={!!initialData}
             sx={{
               "& .Mui-disabled": {
                 WebkitTextFillColor: "rgba(0, 0, 0, 0.6)",
@@ -271,7 +268,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
             InputProps={{
               startAdornment: formData.ip ? (
                 <InputAdornment position="start">
-                  <Tooltip title={site ? "IP Address cannot be edited" : "Format: xxx.xxx.xxx.xxx (optional)"}>
+                  <Tooltip title={initialData ? "IP Address cannot be edited" : "Format: xxx.xxx.xxx.xxx (optional)"}>
                     <InfoIcon fontSize="small" color="action" />
                   </Tooltip>
                 </InputAdornment>
@@ -349,7 +346,7 @@ const SiteForm = ({ site, onSubmit, onClose }) => {
           sx={{ minWidth: '80px' }}
           startIcon={loading ? <CircularProgress size={16} /> : null}
         >
-          {site ? 'Update' : 'Create'}
+          {initialData ? 'Update' : 'Create'}
         </Button>
       </StyledDialogActions>
     </Box>
