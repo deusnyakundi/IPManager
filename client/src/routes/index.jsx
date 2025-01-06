@@ -14,6 +14,8 @@ import ConfigGenerator from '../components/config/ConfigurationGenerator';
 import InfrastructureManager from '../components/admin/InfrastructureManager';
 import SecuritySettings from '../components/settings/SecuritySettings';
 import NavBar from '../components/layout/NavBar';
+import SiteSubmission from '../components/user/SiteSubmission';
+import PseudowireGenerator from '../components/config/PseudowireGenerator';
 
 const AppRoutes = () => {
     const { isAuthenticated, user } = useAuth();
@@ -123,6 +125,15 @@ const AppRoutes = () => {
                         </ProtectedRoute>
                     }
                 />
+                {/* Generate IP */}
+                <Route
+                    path="/generate-ip"
+                    element={
+                        <ProtectedRoute>
+                            <SiteSubmission />
+                        </ProtectedRoute>
+                    }
+                />
 
                 {/* Infrastructure Manager */}
                 <Route
@@ -150,6 +161,15 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute adminOnly>
                             <ManageUsers />
+                        </ProtectedRoute>
+                    }
+                />
+                {/*Pseudowire Generator*/}
+                <Route
+                    path="/pseudowire-generator"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <PseudowireGenerator />
                         </ProtectedRoute>
                     }
                 />

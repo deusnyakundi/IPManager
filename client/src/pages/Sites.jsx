@@ -36,11 +36,12 @@ const Sites = () => {
 
       console.log('Raw API response:', response);
 
-      const { sites: sitesData, pagination } = response.data || {};
+      const sitesData = Array.isArray(response.data) ? response.data : response.data?.sites;
+      const paginationData = Array.isArray(response.data) ? null : response.data?.pagination;
       
       if (Array.isArray(sitesData)) {
         setSites(sitesData);
-        setTotalRows(pagination?.total || sitesData.length);
+        setTotalRows(paginationData?.total || sitesData.length);
       } else {
         console.error('Invalid sites data format:', response.data);
         setSites([]);
