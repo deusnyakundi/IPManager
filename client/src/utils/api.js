@@ -1,17 +1,23 @@
 // Frontend (Axios Interceptor)
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
+import { getCSRFToken, isValidCSRFToken, refreshCSRFToken } from './csrf';
 
 // Create an Axios instance with base URL and content type
 const api = axios.create({
-  baseURL: 'http://localhost:9000/api',
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? process.env.REACT_APP_API_URL 
+    : 'http://localhost:9000/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Crucial for sending and receiving cookies
+  withCredentials: true,
 });
 
 let isRefreshing = false;
 let failedQueue = [];
+let lastRefreshTime = 0; // Track last refresh time
+const REFRESH_COOLDOWN = 30000; // 30 seconds cooldown between refreshes
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
@@ -24,43 +30,105 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Request Interceptor: Add Authorization header if needed
-api.interceptors.request.use(
-  (config) => {
-    // Don't retry these endpoints
-    const noRetryEndpoints = ['/auth/refresh', '/auth/login', '/auth/logout'];
-    if (!noRetryEndpoints.includes(config.url)) {
-      config._retry = false; // Reset retry flag for each new request
+// Function to check if token is expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const decoded = jwtDecode(token);
+    const currentTime = Date.now() / 1000;
+    
+    // Only refresh if token is expired
+    if (decoded.exp <= currentTime) {
+      return true;
     }
+
+    return false;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return true;
+  }
+};
+
+// Function to get access token from cookies
+const getAccessToken = () => {
+  try {
+    const cookies = document.cookie.split(';');
+    const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('accessToken='));
+    return tokenCookie ? tokenCookie.split('=')[1] : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+// Function to handle token refresh
+const refreshToken = async () => {
+  const currentTime = Date.now();
+  
+  // Check if we're within the cooldown period
+  if (currentTime - lastRefreshTime < REFRESH_COOLDOWN) {
+    return;
+  }
+
+  try {
+    const response = await api.post('/auth/refresh');
+    lastRefreshTime = currentTime;
+    return response.data;
+  } catch (error) {
+    throw error;
+  } finally {
+    isRefreshing = false;
+  }
+};
+
+// Request Interceptor: Only handle CSRF
+api.interceptors.request.use(async (config) => {
+  // Skip CSRF token for safe methods and auth endpoints
+  if (config.method === 'get' || config.method === 'head' || config.method === 'options' ||
+      ['/auth/login', '/auth/logout', '/auth/refresh'].includes(config.url)) {
     return config;
-  },
-  (error) => Promise.reject(error)
-);
+  }
+
+  try {
+    let csrfToken = getCSRFToken();
+    if (!csrfToken || !isValidCSRFToken(csrfToken)) {
+      try {
+        csrfToken = await refreshCSRFToken();
+      } catch (error) {
+        console.warn('Failed to refresh CSRF token:', error);
+      }
+    }
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  } catch (error) {
+    console.warn('Error setting CSRF token:', error);
+  }
+
+  return config;
+});
 
 // Response Interceptor: Handle token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
-    // Don't retry these endpoints
     const noRetryEndpoints = ['/auth/refresh', '/auth/login', '/auth/logout'];
     const noRedirectEndpoints = [...noRetryEndpoints, '/auth/me'];
 
-    // If the error is 401 and it's a refresh token request or login
+    // If it's already a refresh/login request that failed, redirect
     if (error.response?.status === 401 && noRetryEndpoints.includes(originalRequest.url)) {
-      // Only redirect to login if not already there and not a /me request
       if (!noRedirectEndpoints.includes(originalRequest.url) && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
       return Promise.reject(error);
     }
 
-    // Handle token refresh for other 401 errors
+    // Handle 401 errors for other requests
     if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
       if (isRefreshing) {
         try {
-          // Wait for the refresh to complete
           await new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           });
@@ -70,36 +138,50 @@ api.interceptors.response.use(
         }
       }
 
-      originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        // Attempt to refresh the token
-        await api.post('/auth/refresh');
-        
-        // Process any queued requests
+        await refreshToken();
         processQueue(null);
-        
-        // Reset the retry flag
-        originalRequest._retry = false;
-        
-        // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        // Only redirect to login if not already there and not a /me request
+        processQueue(refreshError);
         if (!noRedirectEndpoints.includes(originalRequest.url) && window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 
     return Promise.reject(error);
   }
 );
+
+// Add cookie security check
+const validateCookieSettings = () => {
+  const cookies = document.cookie.split(';');
+  const accessTokenCookie = cookies.find(cookie => cookie.trim().startsWith('accessToken='));
+  const refreshTokenCookie = cookies.find(cookie => cookie.trim().startsWith('refreshToken='));
+
+  if (!accessTokenCookie || !refreshTokenCookie) {
+    console.warn('Missing authentication cookies');
+    return false;
+  }
+
+  // In development, we can't check for Secure flag
+  if (process.env.NODE_ENV === 'production') {
+    // Check if cookies are being sent over HTTPS
+    if (!window.location.protocol.includes('https')) {
+      console.error('Cookies are not secure: not using HTTPS');
+      return false;
+    }
+  }
+
+  return true;
+};
+
+// Validate cookie settings on initialization
+validateCookieSettings();
 
 // Export API modules
 export const ipAPI = {
