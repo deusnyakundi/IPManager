@@ -5,11 +5,11 @@ import {
   InputBase,
   Paper,
   Slide,
-  styled
+  styled,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
 } from '@mui/icons-material';
 
 const SearchContainer = styled(Box)(({ theme }) => ({
@@ -28,6 +28,10 @@ const SearchPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
   border: `1px solid ${theme.palette.divider}`,
   borderRadius: 0,
+  transition: theme.transitions.create('width', {
+    duration: theme.transitions.duration.shortest,
+  }),
+  width: '0', // Default width when not expanded
 }));
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
@@ -35,8 +39,7 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   '& .MuiInputBase-input': {
     padding: theme.spacing(0, 1),
     height: '32px',
-    transition: theme.transitions.create('width'),
-    width: '100%',
+    width: '100%', // Ensures input stretches to container width
   },
 }));
 
@@ -45,11 +48,7 @@ const ExpandingSearch = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleSearchClick = () => {
-    if (!isExpanded) {
-      setIsExpanded(true);
-    } else if (searchTerm) {
-      onSearch(searchTerm);
-    }
+    setIsExpanded(true);
   };
 
   const handleClose = () => {
@@ -66,23 +65,26 @@ const ExpandingSearch = ({ onSearch }) => {
 
   return (
     <SearchContainer>
-      {!isExpanded && (
-        <IconButton
-          size="small"
-          onClick={handleSearchClick}
-          sx={{ 
-            height: '32px',
-            width: '32px',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            }
+      <IconButton
+        size="small"
+        onClick={handleSearchClick}
+        sx={{
+          height: '32px',
+          width: '32px',
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+        }}
+      >
+        <SearchIcon fontSize="small" />
+      </IconButton>
+      <Slide direction="left" in={isExpanded} mountOnEnter unmountOnExit>
+        <SearchPaper
+          elevation={0}
+          sx={{
+            width: isExpanded ? '300px' : '0', // Adjust the expanded width
           }}
         >
-          <SearchIcon fontSize="small" />
-        </IconButton>
-      )}
-      <Slide direction="left" in={isExpanded} mountOnEnter unmountOnExit>
-        <SearchPaper elevation={0}>
           <StyledInputBase
             autoFocus
             placeholder="Search sites..."
@@ -92,26 +94,13 @@ const ExpandingSearch = ({ onSearch }) => {
           />
           <IconButton
             size="small"
-            onClick={handleSearchClick}
-            sx={{ 
-              height: '32px',
-              width: '32px',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              }
-            }}
-          >
-            <SearchIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
             onClick={handleClose}
-            sx={{ 
+            sx={{
               height: '32px',
               width: '32px',
               '&:hover': {
                 backgroundColor: 'action.hover',
-              }
+              },
             }}
           >
             <CloseIcon fontSize="small" />
@@ -122,4 +111,4 @@ const ExpandingSearch = ({ onSearch }) => {
   );
 };
 
-export default ExpandingSearch; 
+export default ExpandingSearch;
