@@ -80,20 +80,23 @@ const ManageUsers = () => {
 
   const handleEditUser = async (updatedData) => {
     setPendingEditData(updatedData);
+    setOpenEditDialog(false);
     setOpenConfirmEdit(true);
   };
 
   const handleConfirmEdit = async () => {
+    if (!selectedUser || !pendingEditData) return;
+    
     try {
       await userAPI.updateUser(selectedUser.id, pendingEditData);
+      await fetchUsers();
       setOpenConfirmEdit(false);
-      setOpenEditDialog(false);
-      setSelectedUser(null);
-      setPendingEditData(null);
-      fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
+    } finally {
+      setPendingEditData(null);
+      setSelectedUser(null);
     }
   };
 
@@ -258,7 +261,6 @@ const ManageUsers = () => {
         open={openEditDialog}
         onClose={() => {
           setOpenEditDialog(false);
-          setSelectedUser(null);
         }}
         user={selectedUser}
         onSave={handleEditUser}
@@ -268,11 +270,13 @@ const ManageUsers = () => {
         open={openConfirmEdit}
         onClose={() => {
           setOpenConfirmEdit(false);
-          setPendingEditData(null);
         }}
         onConfirm={handleConfirmEdit}
         title="Edit User"
         content={`Are you sure you want to update user "${selectedUser?.username}"?`}
+        confirmButtonText="Update"
+        cancelButtonText="Cancel"
+        confirmButtonColor="primary"
       />
 
       <ConfirmDialog
@@ -284,6 +288,9 @@ const ManageUsers = () => {
         onConfirm={handleDeleteUser}
         title="Delete User"
         content={`Are you sure you want to delete user "${selectedUser?.username}"? This action cannot be undone.`}
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+        confirmButtonColor="error"
       />
     </Container>
   );

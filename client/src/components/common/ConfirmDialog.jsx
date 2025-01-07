@@ -7,7 +7,16 @@ import {
   Typography
 } from '@mui/material';
 
-const ConfirmDialog = ({ open, onClose, onConfirm, title, content }) => {
+const ConfirmDialog = ({ 
+  open, 
+  onClose, 
+  onConfirm, 
+  title, 
+  content,
+  confirmButtonText = 'Delete',
+  cancelButtonText = 'Cancel',
+  confirmButtonColor = 'error'
+}) => {
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>{title}</DialogTitle>
@@ -15,14 +24,14 @@ const ConfirmDialog = ({ open, onClose, onConfirm, title, content }) => {
         <Typography>{content}</Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} size="small">Cancel</Button>
+        <Button onClick={onClose} size="small">{cancelButtonText}</Button>
         <Button 
           onClick={onConfirm} 
           variant="contained" 
-          color="error" 
+          color={confirmButtonColor}
           size="small"
         >
-          Delete
+          {confirmButtonText}
         </Button>
       </DialogActions>
     </Dialog>
