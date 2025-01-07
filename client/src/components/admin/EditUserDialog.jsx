@@ -12,7 +12,9 @@ import {
   Select,
   MenuItem,
   Alert,
+  FormHelperText,
 } from '@mui/material';
+import { getValidationError } from '../../utils/validation';
 
 const EditUserDialog = ({ open, onClose, user, onSave }) => {
   const [formData, setFormData] = useState({
@@ -21,6 +23,7 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
     phone: '',
     role: 'user',
   });
+  const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,6 +34,8 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
         phone: user.phone || '',
         role: user.role || 'user',
       });
+      setFormErrors({});
+      setError('');
     }
   }, [user]);
 
@@ -40,17 +45,38 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
       ...prev,
       [name]: value
     }));
+    // Clear error for the field being changed
+    setFormErrors(prev => ({
+      ...prev,
+      [name]: ''
+    }));
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    ['email', 'phone', 'role'].forEach(field => {
+      const errorMessage = getValidationError(field, formData[field]);
+      if (errorMessage) {
+        errors[field] = errorMessage;
+      }
+    });
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       await onSave(formData);
       onClose();
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to update user');
+      setError(error.response?.data?.error || 'Failed to update user');
     }
   };
 
@@ -85,6 +111,8 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
               required
               fullWidth
               size="small"
+              error={!!formErrors.email}
+              helperText={formErrors.email}
             />
             <TextField
               label="Phone Number"
@@ -93,8 +121,10 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
               onChange={handleChange}
               fullWidth
               size="small"
+              error={!!formErrors.phone}
+              helperText={formErrors.phone}
             />
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" error={!!formErrors.role}>
               <InputLabel>Role</InputLabel>
               <Select
                 name="role"
@@ -108,11 +138,18 @@ const EditUserDialog = ({ open, onClose, user, onSave }) => {
                 <MenuItem value="support">Support</MenuItem>
                 <MenuItem value="planner">Planner</MenuItem>
               </Select>
+              {formErrors.role && (
+                <FormHelperText>{formErrors.role}</FormHelperText>
+              )}
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose} size="small">
+          <Button onClick={() => {
+            onClose();
+            setFormErrors({});
+            setError('');
+          }} size="small">
             Cancel
           </Button>
           <Button type="submit" variant="contained" size="small">

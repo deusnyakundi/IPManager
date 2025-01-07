@@ -25,12 +25,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
+  FormHelperText,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditUserDialog from './EditUserDialog';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { getValidationError } from '../../utils/validation';
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
@@ -47,6 +50,8 @@ const ManageUsers = () => {
     phone: '',
     role: 'user'
   });
+  const [formErrors, setFormErrors] = useState({});
+  const [error, setError] = useState('');
 
   const fetchUsers = async () => {
     try {
@@ -61,9 +66,27 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
+  const validateForm = () => {
+    const errors = {};
+    ['username', 'email', 'password', 'phone', 'role'].forEach(field => {
+      const errorMessage = getValidationError(field, newUser[field]);
+      if (errorMessage) {
+        errors[field] = errorMessage;
+      }
+    });
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddUser = async () => {
+    setError('');
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await userAPI.createUser(newUser);
+      const response = await userAPI.createUser(newUser);
+      setUsers([...users, response.data]);
       setOpenDialog(false);
       setNewUser({
         username: '',
@@ -72,9 +95,9 @@ const ManageUsers = () => {
         phone: '',
         role: 'user'
       });
-      fetchUsers();
+      setFormErrors({});
     } catch (error) {
-      console.error('Error adding user:', error);
+      setError(error.response?.data?.error || 'Failed to create user');
     }
   };
 
@@ -206,12 +229,19 @@ const ManageUsers = () => {
         <DialogTitle>Add New User</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             <TextField
               label="Username"
               value={newUser.username}
               onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
               required
               fullWidth
+              error={!!formErrors.username}
+              helperText={formErrors.username}
             />
             <TextField
               label="Email"
@@ -220,6 +250,8 @@ const ManageUsers = () => {
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
               required
               fullWidth
+              error={!!formErrors.email}
+              helperText={formErrors.email}
             />
             <TextField
               label="Initial Password"
@@ -228,15 +260,18 @@ const ManageUsers = () => {
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
               required
               fullWidth
-              helperText="User will be required to change this password on first login"
+              error={!!formErrors.password}
+              helperText={formErrors.password || "User will be required to change this password on first login"}
             />
             <TextField
               label="Phone Number"
               value={newUser.phone}
               onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
               fullWidth
+              error={!!formErrors.phone}
+              helperText={formErrors.phone}
             />
-            <FormControl fullWidth>
+            <FormControl fullWidth error={!!formErrors.role}>
               <InputLabel>Role</InputLabel>
               <Select
                 value={newUser.role}
@@ -248,11 +283,20 @@ const ManageUsers = () => {
                 <MenuItem value="support">Support</MenuItem>
                 <MenuItem value="planner">Planner</MenuItem>
               </Select>
+              {formErrors.role && (
+                <FormHelperText>{formErrors.role}</FormHelperText>
+              )}
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setOpenDialog(false);
+            setFormErrors({});
+            setError('');
+          }}>
+            Cancel
+          </Button>
           <Button onClick={handleAddUser} variant="contained">Add User</Button>
         </DialogActions>
       </Dialog>
