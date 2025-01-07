@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 
 exports.getUsers = async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, email, phone,role FROM users');
+    const result = await pool.query('SELECT id, username, email, phone, role, two_factor_enabled FROM users');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching users:', error);
