@@ -9,7 +9,7 @@ const generateTokens = (user) => {
   console.log('Generating tokens for user:', user); // Debug
   try {
     const accessToken = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -326,7 +326,7 @@ exports.refresh = async (req, res) => {
 
     // Generate a new access token
     const accessToken = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );

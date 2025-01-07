@@ -43,3 +43,41 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.toggle2FA = async (req, res) => {
+  const { id } = req.params;
+  const { enabled, email } = req.body;
+
+  try {
+    // First check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userCheck.rows[0];
+
+    // Validate email if 2FA is being enabled
+    if (enabled && !email && !user.email) {
+      return res.status(400).json({ error: 'Email is required for enabling 2FA' });
+    }
+
+    // Use provided email or fallback to user's existing email
+    const emailToUse = email || user.email;
+
+    // Update user's 2FA settings
+    const result = await pool.query(
+      'UPDATE users SET two_factor_enabled = $1, email = $2 WHERE id = $3 RETURNING id, username, email, two_factor_enabled',
+      [enabled, emailToUse, id]
+    );
+
+    res.json({
+      message: enabled ? '2FA enabled successfully' : '2FA disabled successfully',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error toggling 2FA:', error);
+    res.status(500).json({ error: 'Failed to update 2FA settings' });
+  }
+};
