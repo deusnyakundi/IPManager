@@ -13,6 +13,7 @@ import {
 import SitesList from '../components/sites/SitesList';
 import SiteForm from '../components/sites/SiteForm';
 import ImportResultsDialog from '../components/sites/ImportResultsDialog';
+import ExpandingSearch from '../components/common/ExpandingSearch';
 import api from '../utils/api';
 
 const Sites = () => {
@@ -169,6 +170,11 @@ const Sites = () => {
     setPage(0);
   };
 
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    setPage(0); // Reset to first page when searching
+  };
+
   return (
     <Container 
       maxWidth="xl" 
@@ -222,6 +228,7 @@ const Sites = () => {
                 alignItems: 'center',
                 height: '32px'
               }}>
+                <ExpandingSearch onSearch={handleSearch} />
                 <Button 
                   variant="contained" 
                   onClick={() => setFormDialogOpen(true)}
