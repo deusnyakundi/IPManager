@@ -27,23 +27,26 @@ import {
   DialogActions,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import EditUserDialog from './EditUserDialog';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openConfirmEdit, setOpenConfirmEdit] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [pendingEditData, setPendingEditData] = useState(null);
   const [newUser, setNewUser] = useState({
     username: '',
-    email: '',
     password: '',
+    email: '',
     phone: '',
-    role: 'user',
-    forcePasswordChange: true
+    role: 'user'
   });
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -54,37 +57,60 @@ const ManageUsers = () => {
     }
   };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleAddUser = async () => {
-    if (!newUser.username || !newUser.password || !newUser.email) return;
     try {
       await userAPI.createUser(newUser);
+      setOpenDialog(false);
       setNewUser({
         username: '',
-        email: '',
         password: '',
+        email: '',
         phone: '',
-        role: 'user',
-        forcePasswordChange: true
+        role: 'user'
       });
-      setOpenDialog(false);
       fetchUsers();
     } catch (error) {
       console.error('Error adding user:', error);
     }
   };
 
-  const handleDeleteUser = async (id) => {
+  const handleEditUser = async (updatedData) => {
+    setPendingEditData(updatedData);
+    setOpenConfirmEdit(true);
+  };
+
+  const handleConfirmEdit = async () => {
     try {
-      await userAPI.deleteUser(id);
+      await userAPI.updateUser(selectedUser.id, pendingEditData);
+      setOpenConfirmEdit(false);
+      setOpenEditDialog(false);
+      setSelectedUser(null);
+      setPendingEditData(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    try {
+      await userAPI.deleteUser(selectedUser.id);
+      setOpenDeleteDialog(false);
+      setSelectedUser(null);
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
     }
   };
 
-  const handleToggle2FA = async (id, enabled) => {
+  const handleToggle2FA = async (userId, enabled) => {
     try {
-      await userAPI.toggle2FA(id, enabled);
+      await userAPI.toggle2FA(userId, { enabled });
       fetchUsers();
     } catch (error) {
       console.error('Error toggling 2FA:', error);
@@ -135,22 +161,35 @@ const ManageUsers = () => {
                     <TableCell>{user.phone}</TableCell>
                     <TableCell>{user.role}</TableCell>
                     <TableCell>
-                      <Tooltip title={user.two_factor_enabled ? "Disable 2FA" : "Enable 2FA"}>
-                        <Switch
-                          size="small"
-                          checked={user.two_factor_enabled}
-                          onChange={() => handleToggle2FA(user.id, !user.two_factor_enabled)}
-                          color="primary"
-                        />
-                      </Tooltip>
+                      <Switch
+                        size="small"
+                        checked={user.two_factor_enabled}
+                        onChange={(e) => handleToggle2FA(user.id, e.target.checked)}
+                      />
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteUser(user.id)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      <Tooltip title="Edit User">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setOpenEditDialog(true);
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete User">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setOpenDeleteDialog(true);
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -203,8 +242,8 @@ const ManageUsers = () => {
               >
                 <MenuItem value="admin">Admin</MenuItem>
                 <MenuItem value="user">User</MenuItem>
-                <MenuItem value="planner">Planner</MenuItem>
                 <MenuItem value="support">Support</MenuItem>
+                <MenuItem value="planner">Planner</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -214,6 +253,38 @@ const ManageUsers = () => {
           <Button onClick={handleAddUser} variant="contained">Add User</Button>
         </DialogActions>
       </Dialog>
+
+      <EditUserDialog
+        open={openEditDialog}
+        onClose={() => {
+          setOpenEditDialog(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
+        onSave={handleEditUser}
+      />
+
+      <ConfirmDialog
+        open={openConfirmEdit}
+        onClose={() => {
+          setOpenConfirmEdit(false);
+          setPendingEditData(null);
+        }}
+        onConfirm={handleConfirmEdit}
+        title="Edit User"
+        content={`Are you sure you want to update user "${selectedUser?.username}"?`}
+      />
+
+      <ConfirmDialog
+        open={openDeleteDialog}
+        onClose={() => {
+          setOpenDeleteDialog(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        content={`Are you sure you want to delete user "${selectedUser?.username}"? This action cannot be undone.`}
+      />
     </Container>
   );
 };

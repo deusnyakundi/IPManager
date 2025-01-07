@@ -17,6 +17,7 @@ router.use(authenticateToken);
 
 router.get('/', userController.getUsers);
 router.post('/', userController.createUser);
+router.put('/:id', isAdmin, userController.updateUser);
 router.delete('/:id', userController.deleteUser);
 router.post('/:id/toggle-2fa', isAdmin, userController.toggle2FA);
 

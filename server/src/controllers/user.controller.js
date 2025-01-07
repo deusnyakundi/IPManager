@@ -34,6 +34,62 @@ exports.createUser = async (req, res) => {
   }
 };
 
+exports.updateUser = async (req, res) => {
+  const { id } = req.params;
+  const { username, email, phone, role } = req.body;
+
+  try {
+    // First check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if username is being changed and if it's already taken
+    if (username !== userCheck.rows[0].username) {
+      const usernameCheck = await pool.query(
+        'SELECT id FROM users WHERE username = $1 AND id != $2',
+        [username, id]
+      );
+      if (usernameCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email !== userCheck.rows[0].email) {
+      const emailCheck = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [email, id]
+      );
+      if (emailCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+    }
+
+    // Update user details
+    const result = await pool.query(
+      `UPDATE users 
+       SET username = $1, 
+           email = $2, 
+           phone = $3, 
+           role = $4
+       WHERE id = $5 
+       RETURNING id, username, email, phone, role, two_factor_enabled`,
+      [username, email, phone, role, id]
+    );
+
+    res.json({
+      message: 'User updated successfully',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+};
+
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   try {

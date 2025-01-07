@@ -132,6 +132,7 @@ export const userAPI = {
   createUser: (user) => api.post('/users', user),
   deleteUser: (id) => api.delete(`/users/${id}`),
   toggle2FA: (id, enabled) => api.post(`/users/${id}/toggle-2fa`, { enabled }),
+  updateUser: (id, userData) => api.put(`/users/${id}`, userData),
 };
 
 export const vlanAPI = {
