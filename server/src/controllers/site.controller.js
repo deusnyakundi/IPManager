@@ -937,6 +937,19 @@ const siteController = {
       const mspMap = new Map(mspsResult.rows.map(m => [m.name.toLowerCase(), m.id]));
       const clusterMap = new Map(clustersResult.rows.map(c => [c.name.toLowerCase(), c.id]));
 
+      // IP validation regex
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      const isValidIP = (ip) => {
+        if (!ip) return false; // IP is required, so empty/null is invalid
+        if (!ipRegex.test(ip)) return false;
+        // Check each octet is between 0 and 255
+        const octets = ip.split('.');
+        return octets.every(octet => {
+          const num = parseInt(octet, 10);
+          return num >= 0 && num <= 255;
+        });
+      };
+
       for (const site of sites) {
         try {
           await client.query('BEGIN');
@@ -949,6 +962,14 @@ const siteController = {
             msp: site['MSP'] || site.msp,
             ipranCluster: site['IPRAN Cluster'] || site.ipranCluster
           };
+
+          // Validate IP is provided and in correct format
+          if (!siteData.ip) {
+            throw new Error('IP address is required');
+          }
+          if (!isValidIP(siteData.ip)) {
+            throw new Error(`Invalid IP address format: ${siteData.ip}`);
+          }
 
           // Look up IDs from the maps
           const region_id = siteData.region ? regionMap.get(siteData.region.toLowerCase()) : null;
@@ -1048,6 +1069,7 @@ const siteController = {
           success: results,
           errors: errors,
           imported: results.length,
+          failed: errors.length,
           summary: `Successfully imported ${results.length} sites, ${errors.length} failures`
         });
       } else {
