@@ -12,12 +12,24 @@ exports.getUsers = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, email, phone, role, forcePasswordChange = true } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role', [username, hashedPassword, role]);
+    const result = await pool.query(
+      `INSERT INTO users (
+        username, 
+        password, 
+        email, 
+        phone, 
+        role, 
+        force_password_change
+      ) VALUES ($1, $2, $3, $4, $5, $6) 
+      RETURNING id, username, email, phone, role`,
+      [username, hashedPassword, email, phone, role, forcePasswordChange]
+    );
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error('Error creating user:', error);
     res.status(500).json({ error: error.message });
   }
 };
