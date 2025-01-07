@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import SitesList from '../components/sites/SitesList';
 import SiteForm from '../components/sites/SiteForm';
+import ImportResultsDialog from '../components/sites/ImportResultsDialog';
 import api from '../utils/api';
 
 const Sites = () => {
@@ -20,6 +21,8 @@ const Sites = () => {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingSite, setEditingSite] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  const [importResults, setImportResults] = useState(null);
+  const [showImportResults, setShowImportResults] = useState(false);
   const fileInputRef = useRef(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -138,11 +141,8 @@ const Sites = () => {
       });
 
       fetchSites();
-      setNotification({
-        open: true,
-        message: `Successfully imported ${response.data.imported} sites`,
-        severity: 'success'
-      });
+      setImportResults(response.data);
+      setShowImportResults(true);
     } catch (error) {
       console.error('Error importing sites:', error);
       setNotification({
@@ -304,6 +304,12 @@ const Sites = () => {
           initialData={editingSite}
         />
       </Dialog>
+
+      <ImportResultsDialog 
+        open={showImportResults}
+        onClose={() => setShowImportResults(false)}
+        results={importResults}
+      />
 
       <Snackbar
         open={notification.open}
