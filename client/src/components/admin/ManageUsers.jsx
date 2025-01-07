@@ -34,6 +34,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditUserDialog from './EditUserDialog';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { getValidationError } from '../../utils/validation';
+import { useSession } from '../../contexts/SessionContext';
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
@@ -52,6 +53,7 @@ const ManageUsers = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState('');
+  const { verifySecurityOperation } = useSession();
 
   const fetchUsers = async () => {
     try {
@@ -85,6 +87,10 @@ const ManageUsers = () => {
     }
 
     try {
+      if (!(await verifySecurityOperation('add_user'))) {
+        return;
+      }
+
       const response = await userAPI.createUser(newUser);
       setUsers([...users, response.data]);
       setOpenDialog(false);
@@ -111,6 +117,10 @@ const ManageUsers = () => {
     if (!selectedUser || !pendingEditData) return;
     
     try {
+      if (!(await verifySecurityOperation('edit_user'))) {
+        return;
+      }
+
       await userAPI.updateUser(selectedUser.id, pendingEditData);
       await fetchUsers();
       setOpenConfirmEdit(false);
@@ -125,6 +135,10 @@ const ManageUsers = () => {
 
   const handleDeleteUser = async () => {
     try {
+      if (!(await verifySecurityOperation('delete_user'))) {
+        return;
+      }
+
       await userAPI.deleteUser(selectedUser.id);
       setOpenDeleteDialog(false);
       setSelectedUser(null);
@@ -136,6 +150,10 @@ const ManageUsers = () => {
 
   const handleToggle2FA = async (userId, enabled) => {
     try {
+      if (!(await verifySecurityOperation('toggle_2fa'))) {
+        return;
+      }
+
       await userAPI.toggle2FA(userId, { enabled });
       fetchUsers();
     } catch (error) {

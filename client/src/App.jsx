@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import NavBar from "./components/layout/NavBar";
 import AppRoutes from "./routes/index";
+import { SessionProvider } from './contexts/SessionContext';
 
 const theme = createTheme({
   palette: {
@@ -78,7 +79,9 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <SessionProvider>
+            <AppRoutes />
+          </SessionProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
