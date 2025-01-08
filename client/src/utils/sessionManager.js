@@ -8,8 +8,8 @@ let warningTimeoutId = null;
 let activityTimeoutId = null;
 let checkIntervalId = null;
 
-// Event to notify components about session warning
-export const sessionWarningEvent = new CustomEvent('sessionWarning');
+// Create a custom event name constant
+const SESSION_WARNING_EVENT = 'sessionWarning';
 
 const updateLastActivity = () => {
   localStorage.setItem('lastActivity', new Date().getTime().toString());
@@ -22,6 +22,12 @@ const getTimeUntilTimeout = () => {
   const currentTime = new Date().getTime();
   const timeSinceLastActivity = currentTime - parseInt(lastActivity);
   return SESSION_TIMEOUT - timeSinceLastActivity;
+};
+
+const dispatchWarning = () => {
+  // Create and dispatch the warning event
+  const event = new CustomEvent(SESSION_WARNING_EVENT);
+  window.dispatchEvent(event);
 };
 
 export const initializeSessionTimeout = (navigate) => {
@@ -41,7 +47,7 @@ export const initializeSessionTimeout = (navigate) => {
   // Set warning timeout
   if (timeUntilWarning > 0) {
     warningTimeoutId = setTimeout(() => {
-      window.dispatchEvent(sessionWarningEvent);
+      dispatchWarning();
     }, timeUntilWarning);
   }
 
@@ -52,8 +58,12 @@ export const initializeSessionTimeout = (navigate) => {
 
   // Start periodic checks
   checkIntervalId = setInterval(() => {
-    if (checkSessionTimeout()) {
+    const remainingTime = getTimeUntilTimeout();
+    if (remainingTime <= 0) {
       handleSessionTimeout(navigate);
+    } else if (remainingTime <= WARNING_TIME && !warningTimeoutId) {
+      // If we're within warning period but warning hasn't been shown
+      dispatchWarning();
     }
   }, CHECK_INTERVAL);
 };
@@ -162,4 +172,7 @@ export const useSessionTimeout = () => {
   };
 
   return { setupActivityListeners };
-}; 
+};
+
+// Export the event name for components to listen to
+export const SESSION_WARNING_EVENT_NAME = SESSION_WARNING_EVENT; 

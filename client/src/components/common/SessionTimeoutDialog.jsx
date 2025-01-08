@@ -9,7 +9,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { resetSessionTimeout, sessionWarningEvent, getRemainingTime } from '../../utils/sessionManager';
+import { resetSessionTimeout, SESSION_WARNING_EVENT_NAME } from '../../utils/sessionManager';
 import { useAuth } from '../../context/AuthContext';
 
 const UPDATE_INTERVAL = 1000; // Update countdown every second
@@ -24,15 +24,16 @@ const SessionTimeoutDialog = () => {
   useEffect(() => {
     // Handler for session warning event
     const handleSessionWarning = () => {
+      console.log('Session warning received'); // Debug log
       setTimeLeft(WARNING_DURATION);
       setOpen(true);
     };
 
     // Add event listener for session warning
-    window.addEventListener('sessionWarning', handleSessionWarning);
+    window.addEventListener(SESSION_WARNING_EVENT_NAME, handleSessionWarning);
 
     return () => {
-      window.removeEventListener('sessionWarning', handleSessionWarning);
+      window.removeEventListener(SESSION_WARNING_EVENT_NAME, handleSessionWarning);
     };
   }, []);
 
@@ -63,19 +64,11 @@ const SessionTimeoutDialog = () => {
   const handleExtendSession = () => {
     resetSessionTimeout(navigate);
     setOpen(false);
+    setTimeLeft(WARNING_DURATION);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('lastActivity');
-    navigate('/login', {
-      state: {
-        message: 'You have been logged out.',
-        severity: 'info',
-      },
-    });
+    handleSessionTimeout();
   };
 
   // Calculate progress percentage (from 5 minutes to 0)
