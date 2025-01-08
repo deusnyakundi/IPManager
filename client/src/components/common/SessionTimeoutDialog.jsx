@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { resetSessionTimeout, sessionWarningEvent, getRemainingTime } from '../../utils/sessionManager';
+import { useAuth } from '../../context/AuthContext';
 
 const UPDATE_INTERVAL = 1000; // Update countdown every second
 const WARNING_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -18,6 +19,7 @@ const SessionTimeoutDialog = () => {
   const [open, setOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const navigate = useNavigate();
+  const { handleSessionTimeout } = useAuth();
 
   useEffect(() => {
     // Handler for session warning event
@@ -44,6 +46,7 @@ const SessionTimeoutDialog = () => {
           if (newTime <= 0) {
             clearInterval(intervalId);
             setOpen(false);
+            handleSessionTimeout(); // Trigger session timeout when countdown reaches zero
           }
           return newTime;
         });
@@ -55,7 +58,7 @@ const SessionTimeoutDialog = () => {
         clearInterval(intervalId);
       }
     };
-  }, [open]);
+  }, [open, handleSessionTimeout]);
 
   const handleExtendSession = () => {
     resetSessionTimeout(navigate);

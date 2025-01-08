@@ -2,201 +2,140 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  Container,
-  TextField,
-  Button,
-  Typography,
   Box,
-  Alert,
-  CircularProgress,
+  Button,
+  TextField,
+  Typography,
   Paper,
-  IconButton,
+  Alert,
   ThemeProvider,
   createTheme,
 } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#1976D2',
+    },
+    background: {
+      default: '#212121',
+      paper: '#424242',
+    },
+    text: {
+      primary: '#ffffff',
+    },
+  },
+});
 
 const Login = () => {
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loading, error } = useAuth();
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [theme, setTheme] = useState(true); // true for dark, false for light
-  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    if (location.state?.message) {
-      setSuccessMessage(location.state.message);
-      // Clear the message from location state
-      window.history.replaceState({}, document.title);
+    // Check for session expiration message
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('session') === 'expired') {
+      setMessage('Your session has expired. Please log in again.');
+    }
+    // Check for state message from navigation
+    else if (location.state?.message) {
+      setMessage(location.state.message);
     }
   }, [location]);
 
-  const toggleTheme = () => {
-    setTheme(!theme);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMessage(''); // Clear any existing success message
-
-    if (!credentials.username || !credentials.password) {
-      return;
-    }
+    setError('');
+    setMessage('');
 
     try {
-      const success = await login(credentials);
-      if (success) {
-        navigate('/');
+      const result = await login(credentials);
+      if (!result.success) {
+        setError(result.error);
       }
     } catch (error) {
-      if (error.response?.data?.requirePasswordChange) {
-        // Redirect to password change page with userId
-        navigate(`/change-password/${error.response.data.userId}`);
-      }
+      setError('Failed to log in. Please try again.');
     }
   };
 
-  const darkTheme = createTheme({
-    palette: {
-      mode: 'dark',
-      primary: {
-        main: '#1976D2',
-      },
-      background: {
-        default: '#212121',
-        paper: '#424242',
-      },
-      text: {
-        primary: '#ffffff',
-      },
-    },
-  });
-
-  const lightTheme = createTheme({
-    palette: {
-      mode: 'light',
-    },
-  });
-
   return (
-    <ThemeProvider theme={theme ? darkTheme : lightTheme}>
+    <ThemeProvider theme={theme}>
       <Box
         sx={{
+          minHeight: '100vh',
           display: 'flex',
-          height: '100vh',
-          width: '100%',
-          backgroundColor: theme ? '#212121' : '#f5f5f5',
-          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
         }}
       >
-        {/* Toggle Icon */}
-        <IconButton
-          onClick={toggleTheme}
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            color: theme ? '#fff' : '#000',
-          }}
-        >
-          {theme ? <Brightness7 /> : <Brightness4 />}
-        </IconButton>
-
-        {/* Right Side for Login */}
-        <Box
-          sx={{
-            width: '50%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 4,
-          }}
-        >
+        <Box sx={{ maxWidth: 400, width: '100%', mx: 2 }}>
           <Paper
-            elevation={6}
+            elevation={3}
             sx={{
-              padding: 4,
-              width: '80%',
-              maxWidth: '400px',
-              textAlign: 'center',
-              borderRadius: '26px',
-              backgroundColor: theme ? '#424242' : '#ffffff',
+              p: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
             }}
           >
-            <Typography variant="h4" component="h1" gutterBottom>
-              Login
+            <Typography component="h1" variant="h5" gutterBottom>
+              IP Manager Login
             </Typography>
-            {error && <Alert severity="error">{error}</Alert>}
-            {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
-            <form onSubmit={handleSubmit}>
+
+            {message && (
+              <Alert severity="warning" sx={{ width: '100%', mb: 2 }}>
+                {message}
+              </Alert>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               <TextField
-                fullWidth
-                label="Username"
                 margin="normal"
-               
+                required
+                fullWidth
+                id="username"
+                label="Username"
+                name="username"
+                autoComplete="username"
+                autoFocus
                 value={credentials.username}
                 onChange={(e) =>
                   setCredentials({ ...credentials, username: e.target.value })
                 }
-                required
-                error={!credentials.username}
-                helperText={!credentials.username && 'Username is required'}
-                sx={{ 
-                  input: { color: theme ? '#fff' : '#000',borderRadius: '26px',
-                  '&:focus': {borderColor: 'blue',  },
-                }, 
-                      '& .MuiOutlinedInput-root': {
-                  borderRadius: '26px', // Ensure border radius is applied to the input
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'blue', // Focused border color (optional)
-                  },
-                  '&.Mui-error fieldset': {
-                    borderColor: 'red', // Border color when there is an error
-                  },
-
-                },
-
-              }}
               />
               <TextField
-                fullWidth
-                type="password"
-                label="Password"
                 margin="normal"
+                required
+                fullWidth
+                name="password"
+                label="Password"
+                type="password"
+                id="password"
+                autoComplete="current-password"
                 value={credentials.password}
                 onChange={(e) =>
                   setCredentials({ ...credentials, password: e.target.value })
                 }
-                required
-                error={!credentials.password}
-                helperText={!credentials.password && 'Password is required'}
-                sx={{ 
-                  input: { color: theme ? '#fff' : '#000',borderRadius: '26px',
-                  '&:focus': {borderColor: 'blue',  },
-                }, 
-                      '& .MuiOutlinedInput-root': {
-                  borderRadius: '26px', // Ensure border radius is applied to the input
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'blue', // Focused border color (optional)
-                  },
-                  '&.Mui-error fieldset': {
-                    borderColor: 'red', // Border color when there is an error
-                  },
-
-                },
-
-              }}
               />
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
-                sx={{ mt: 3 }}
-                disabled={loading}
+                sx={{ mt: 3, mb: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Login'}
+                Sign In
               </Button>
             </form>
           </Paper>
