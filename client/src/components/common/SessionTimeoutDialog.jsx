@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { resetSessionTimeout, sessionWarningEvent, getRemainingTime } from '../../utils/sessionManager';
 
 const UPDATE_INTERVAL = 1000; // Update countdown every second
+const WARNING_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 const SessionTimeoutDialog = () => {
   const [open, setOpen] = useState(false);
@@ -21,7 +22,7 @@ const SessionTimeoutDialog = () => {
   useEffect(() => {
     // Handler for session warning event
     const handleSessionWarning = () => {
-      setTimeLeft(getRemainingTime());
+      setTimeLeft(WARNING_DURATION);
       setOpen(true);
     };
 
@@ -38,13 +39,14 @@ const SessionTimeoutDialog = () => {
     
     if (open) {
       intervalId = setInterval(() => {
-        const remaining = getRemainingTime();
-        setTimeLeft(remaining);
-        
-        if (remaining <= 0) {
-          clearInterval(intervalId);
-          setOpen(false);
-        }
+        setTimeLeft((prevTime) => {
+          const newTime = Math.max(0, prevTime - UPDATE_INTERVAL);
+          if (newTime <= 0) {
+            clearInterval(intervalId);
+            setOpen(false);
+          }
+          return newTime;
+        });
       }, UPDATE_INTERVAL);
     }
 
@@ -74,7 +76,14 @@ const SessionTimeoutDialog = () => {
   };
 
   // Calculate progress percentage (from 5 minutes to 0)
-  const progress = ((300000 - timeLeft) / 300000) * 100;
+  const progress = ((WARNING_DURATION - timeLeft) / WARNING_DURATION) * 100;
+
+  // Format time remaining in minutes and seconds
+  const formatTimeRemaining = () => {
+    const minutes = Math.floor(timeLeft / 60000);
+    const seconds = Math.ceil((timeLeft % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   // Don't render if dialog is not open
   if (!open) return null;
@@ -89,7 +98,7 @@ const SessionTimeoutDialog = () => {
       <DialogTitle>Session Timeout Warning</DialogTitle>
       <DialogContent>
         <Typography gutterBottom>
-          Your session will expire in {Math.ceil(timeLeft / 1000)} seconds.
+          Your session will expire in {formatTimeRemaining()}.
         </Typography>
         <Typography gutterBottom>
           Would you like to extend your session?
