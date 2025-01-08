@@ -16,6 +16,7 @@ import SecuritySettings from '../components/settings/SecuritySettings';
 import NavBar from '../components/layout/NavBar';
 import SiteSubmission from '../components/user/SiteSubmission';
 import PseudowireGenerator from '../components/config/PseudowireGenerator';
+import Analytics from '../pages/Analytics';
 
 const AppRoutes = () => {
     const { isAuthenticated, user } = useAuth();
@@ -141,6 +142,16 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute adminOnly>
                             <InfrastructureManager />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Analytics */}
+                <Route
+                    path="/analytics"
+                    element={
+                        <ProtectedRoute>
+                            <Analytics />
                         </ProtectedRoute>
                     }
                 />
