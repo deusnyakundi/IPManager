@@ -1,133 +1,165 @@
-import { refreshTokens, verifySession } from '../services/auth.service';
-import api from './api';
+import { useNavigate } from 'react-router-dom';
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-let sessionTimeoutId = null;
-let activityListenersAdded = false;
-let lastActivityTime = Date.now();
-let sessionCheckIntervalId = null;
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const WARNING_TIME = 5 * 60 * 1000; // 5 minutes before timeout
+const CHECK_INTERVAL = 60 * 1000; // Check every minute
+let timeoutId = null;
+let warningTimeoutId = null;
+let activityTimeoutId = null;
+let checkIntervalId = null;
 
-// Callbacks storage
-let onSessionExpiredCallback = () => {};
-let onSecurityEventCallback = () => {};
+// Event to notify components about session warning
+export const sessionWarningEvent = new CustomEvent('sessionWarning');
 
-export const initializeSessionManager = (onSessionExpired, onSecurityEvent) => {
-  onSessionExpiredCallback = onSessionExpired;
-  onSecurityEventCallback = onSecurityEvent;
+const updateLastActivity = () => {
+  localStorage.setItem('lastActivity', new Date().getTime().toString());
+};
+
+const getTimeUntilTimeout = () => {
+  const lastActivity = localStorage.getItem('lastActivity');
+  if (!lastActivity) return 0;
   
-  if (!activityListenersAdded) {
-    ACTIVITY_EVENTS.forEach(event => {
-      window.addEventListener(event, resetSessionTimer);
-    });
-    activityListenersAdded = true;
+  const currentTime = new Date().getTime();
+  const timeSinceLastActivity = currentTime - parseInt(lastActivity);
+  return SESSION_TIMEOUT - timeSinceLastActivity;
+};
+
+export const initializeSessionTimeout = (navigate) => {
+  // Clear any existing timeouts and intervals
+  clearTimeout(timeoutId);
+  clearTimeout(warningTimeoutId);
+  clearTimeout(activityTimeoutId);
+  clearInterval(checkIntervalId);
+
+  // Update last activity
+  updateLastActivity();
+
+  // Calculate time until warning and timeout
+  const timeUntilTimeout = getTimeUntilTimeout();
+  const timeUntilWarning = timeUntilTimeout - WARNING_TIME;
+
+  // Set warning timeout
+  if (timeUntilWarning > 0) {
+    warningTimeoutId = setTimeout(() => {
+      window.dispatchEvent(sessionWarningEvent);
+    }, timeUntilWarning);
+  }
+
+  // Set session timeout
+  timeoutId = setTimeout(() => {
+    handleSessionTimeout(navigate);
+  }, timeUntilTimeout);
+
+  // Start periodic checks
+  checkIntervalId = setInterval(() => {
+    if (checkSessionTimeout()) {
+      handleSessionTimeout(navigate);
+    }
+  }, CHECK_INTERVAL);
+};
+
+export const resetSessionTimeout = (navigate) => {
+  // Clear existing timeouts and intervals
+  clearTimeout(timeoutId);
+  clearTimeout(warningTimeoutId);
+  clearTimeout(activityTimeoutId);
+  clearInterval(checkIntervalId);
+
+  // Update last activity
+  updateLastActivity();
+
+  // Set new timeouts
+  initializeSessionTimeout(navigate);
+};
+
+const handleSessionTimeout = (navigate) => {
+  // Clear all timeouts and intervals
+  clearTimeout(timeoutId);
+  clearTimeout(warningTimeoutId);
+  clearTimeout(activityTimeoutId);
+  clearInterval(checkIntervalId);
+
+  // Clear session data
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('lastActivity');
+
+  // Redirect to login with message
+  navigate('/login', { 
+    state: { 
+      message: 'Your session has expired. Please log in again.',
+      severity: 'warning'
+    } 
+  });
+};
+
+export const checkSessionTimeout = () => {
+  const lastActivity = localStorage.getItem('lastActivity');
+  const token = localStorage.getItem('token');
+  
+  if (token && lastActivity) {
+    const currentTime = new Date().getTime();
+    const timeSinceLastActivity = currentTime - parseInt(lastActivity);
+    
+    return timeSinceLastActivity > SESSION_TIMEOUT;
   }
   
-  resetSessionTimer();
-  startConcurrentSessionCheck();
+  return false;
 };
 
-export const resetSessionTimer = () => {
-  lastActivityTime = Date.now();
-  if (sessionTimeoutId) {
-    clearTimeout(sessionTimeoutId);
-  }
-  sessionTimeoutId = setTimeout(handleSessionTimeout, SESSION_TIMEOUT);
-};
-
-const handleSessionTimeout = () => {
-  cleanupSession();
-  onSessionExpiredCallback();
-};
-
-export const cleanupSession = () => {
-  if (sessionTimeoutId) {
-    clearTimeout(sessionTimeoutId);
-    sessionTimeoutId = null;
-  }
+export const getRemainingTime = () => {
+  const lastActivity = localStorage.getItem('lastActivity');
+  if (!lastActivity) return 0;
   
-  if (sessionCheckIntervalId) {
-    clearInterval(sessionCheckIntervalId);
-    sessionCheckIntervalId = null;
-  }
-  
-  if (activityListenersAdded) {
-    ACTIVITY_EVENTS.forEach(event => {
-      window.removeEventListener(event, resetSessionTimer);
-    });
-    activityListenersAdded = false;
-  }
+  const currentTime = new Date().getTime();
+  const timeSinceLastActivity = currentTime - parseInt(lastActivity);
+  return Math.max(0, SESSION_TIMEOUT - timeSinceLastActivity);
 };
 
-// Store the current session ID
-let currentSessionId = null;
+export const useSessionTimeout = () => {
+  const navigate = useNavigate();
 
-export const setSessionId = (sessionId) => {
-  currentSessionId = sessionId;
-  localStorage.setItem('sessionId', sessionId);
-};
+  const setupActivityListeners = () => {
+    const resetTimeout = () => {
+      // Debounce the reset to prevent excessive calls
+      clearTimeout(activityTimeoutId);
+      activityTimeoutId = setTimeout(() => {
+        // Only reset if there's an active session
+        if (localStorage.getItem('token')) {
+          resetSessionTimeout(navigate);
+        }
+      }, 1000); // Wait 1 second after last activity
+    };
 
-export const getSessionId = () => {
-  return currentSessionId || localStorage.getItem('sessionId');
-};
+    // Add event listeners for user activity
+    window.addEventListener('mousemove', resetTimeout);
+    window.addEventListener('keypress', resetTimeout);
+    window.addEventListener('click', resetTimeout);
+    window.addEventListener('scroll', resetTimeout);
 
-// Check for concurrent sessions every minute using the verify endpoint
-const startConcurrentSessionCheck = () => {
-  // Clear any existing interval
-  if (sessionCheckIntervalId) {
-    clearInterval(sessionCheckIntervalId);
-  }
-
-  sessionCheckIntervalId = setInterval(async () => {
-    try {
-      // Use the existing verify endpoint
-      await verifySession();
-    } catch (error) {
-      // Handle specific error cases
-      if (error.response?.status === 401) {
-        cleanupSession();
-        onSecurityEventCallback('invalid_session');
-      } else if (error.response?.data?.error === 'concurrent_session') {
-        cleanupSession();
-        onSecurityEventCallback('concurrent_session');
+    // Check for existing session timeout
+    if (checkSessionTimeout()) {
+      handleSessionTimeout(navigate);
+    } else {
+      // Initialize the first timeout only if there's an active session
+      if (localStorage.getItem('token')) {
+        initializeSessionTimeout(navigate);
       }
-      // Don't log network errors as they're expected when offline
-      if (error.response) {
-        console.error('Session check failed:', error);
-      }
     }
-  }, 60000); // Check every minute
-};
 
-// Function to handle security-sensitive operations
-export const handleSecurityOperation = async (operation) => {
-  try {
-    // Use the existing verify endpoint
-    await verifySession();
-    return true;
-  } catch (error) {
-    if (error.response?.status === 401) {
-      cleanupSession();
-      onSecurityEventCallback('invalid_session');
-    }
-    return false;
-  }
-};
+    // Cleanup function
+    return () => {
+      window.removeEventListener('mousemove', resetTimeout);
+      window.removeEventListener('keypress', resetTimeout);
+      window.removeEventListener('click', resetTimeout);
+      window.removeEventListener('scroll', resetTimeout);
+      clearTimeout(timeoutId);
+      clearTimeout(warningTimeoutId);
+      clearTimeout(activityTimeoutId);
+      clearInterval(checkIntervalId);
+    };
+  };
 
-// Function to check if the session is active
-export const isSessionActive = () => {
-  return Date.now() - lastActivityTime < SESSION_TIMEOUT;
-};
-
-// Function to extend session if needed
-export const extendSessionIfNeeded = async () => {
-  if (Date.now() - lastActivityTime > SESSION_TIMEOUT / 2) {
-    try {
-      await refreshTokens();
-      resetSessionTimer();
-    } catch (error) {
-      console.error('Failed to extend session:', error);
-      handleSessionTimeout();
-    }
-  }
+  return { setupActivityListeners };
 }; 

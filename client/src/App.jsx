@@ -2,9 +2,10 @@
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import NavBar from "./components/layout/NavBar";
 import AppRoutes from "./routes/index";
-import { SessionProvider } from './contexts/SessionContext';
+import { useEffect } from "react";
+import { initializeSessionTimeout } from "./utils/sessionManager";
+import SessionTimeoutDialog from "./components/common/SessionTimeoutDialog";
 
 const theme = createTheme({
   palette: {
@@ -74,14 +75,34 @@ const theme = createTheme({
 });
 
 function App() {
+  useEffect(() => {
+    // Check for existing session on app load
+    const token = localStorage.getItem('token');
+    if (token) {
+      const lastActivity = localStorage.getItem('lastActivity');
+      const currentTime = new Date().getTime();
+      
+      // If last activity was more than 30 minutes ago, clear the session
+      if (lastActivity && (currentTime - parseInt(lastActivity)) > 30 * 60 * 1000) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('lastActivity');
+        window.location.href = '/login';
+      } else {
+        // Update last activity
+        localStorage.setItem('lastActivity', currentTime.toString());
+      }
+    }
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <SessionProvider>
-            <AppRoutes />
-          </SessionProvider>
+          <AppRoutes />
+          <SessionTimeoutDialog />
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

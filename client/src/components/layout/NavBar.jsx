@@ -1,7 +1,9 @@
 // client/src/components/layout/NavBar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useSessionTimeout } from '../../utils/sessionManager';
+import SessionTimeoutDialog from '../common/SessionTimeoutDialog';
 import {
   AppBar,
   Box,
@@ -110,6 +112,15 @@ const NavBar = ({ children }) => {
   const [collapsed, setCollapsed] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications] = useState([]); // For notification badge
+  const { setupActivityListeners } = useSessionTimeout();
+
+  useEffect(() => {
+    // Set up session timeout handling
+    const cleanup = setupActivityListeners();
+    return () => {
+      cleanup();
+    };
+  }, [setupActivityListeners]);
 
   console.log('Current location:', location.pathname);
   console.log('User role:', user?.role);
@@ -350,6 +361,7 @@ const NavBar = ({ children }) => {
       <Main open={open} collapsed={collapsed}>
         {children}
       </Main>
+      <SessionTimeoutDialog />
     </Box>
   );
 };
