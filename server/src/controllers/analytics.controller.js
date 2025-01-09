@@ -435,6 +435,7 @@ async function processExcelFile(filePath, fileId, client) {
 
     let totalProcessedRows = 0;
     let allIncidents = [];
+    let adrianPortFailures = 0; // Debug counter
 
     // Process each sheet
     for (const sheetName of workbook.SheetNames) {
@@ -472,14 +473,24 @@ async function processExcelFile(filePath, fileId, client) {
           // Try different possible column names for other fields
           const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
           const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
-          const faultType = row['Causes'] || row['Fault Type'] || 'Unknown';
           const assignedGroup = row['Assigned Group'] || row['Assigned'] || row['Team'] || 'Unknown';
+
+          // Debug log for Adrian's port failures
+          if (assignedGroup.toLowerCase().includes('adrian') && sheetName.toLowerCase().includes('port failure')) {
+            adrianPortFailures++;
+            console.log('Found Adrian Port Failure:', {
+              ticketNumber,
+              assignedGroup,
+              sheetName,
+              row: JSON.stringify(row)
+            });
+          }
 
           const incident = {
             file_id: fileId,
             ticket_number: ticketNumber,
             region: region,
-            fault_type: faultType,
+            fault_type: sheetName.trim(), // Use sheet name as fault type
             assigned_group: assignedGroup,
             reported_date: reportedDate,
             cleared_date: clearedDate,
@@ -518,12 +529,6 @@ async function processExcelFile(filePath, fileId, client) {
 
           allIncidents.push(incident);
           
-          // Update processed rows count in real-time
-          await client.query(
-            'UPDATE analytics_files SET processed_rows = $1 WHERE id = $2',
-            [totalProcessedRows + 1, fileId]
-          );
-          
           totalProcessedRows++;
         } catch (rowError) {
           console.error('Error processing row:', {
@@ -534,6 +539,13 @@ async function processExcelFile(filePath, fileId, client) {
         }
       }
     }
+
+    console.log('Processing summary:', {
+      totalRows: totalProcessedRows,
+      adrianPortFailures,
+      uniqueAssignedGroups: [...new Set(allIncidents.map(i => i.assigned_group))],
+      portFailureSheets: workbook.SheetNames.filter(name => name.toLowerCase().includes('port failure'))
+    });
 
     // Process analytics data
     const processedData = {
@@ -568,97 +580,142 @@ async function processExcelFile(filePath, fileId, client) {
 function calculateAssignedGroupStats(incidents) {
   const assignedGroups = {};
 
+  // Debug counters
+  const debugCounts = {
+    totalIncidents: 0,
+    portFailures: {
+      total: 0,
+      byGroup: {}
+    }
+  };
+
   incidents.forEach(incident => {
-    const group = incident.assigned_group || 'Unknown';
+    debugCounts.totalIncidents++;
+    
+    const group = incident.assigned_group?.trim() || 'Unknown';
+    const sheetName = incident.sheet_name?.trim().toLowerCase() || '';
+    
+    // Initialize group if not exists
     if (!assignedGroups[group]) {
       assignedGroups[group] = {
-        totalIncidents: 0,
-        totalMTTR: 0,
-        clientsAffected: 0,
-        portFailuresCount: 0,
-        portFailuresWithinSLA: 0,
-        degradationCount: 0,
-        degradationWithinSLA: 0,
-        incidentTypes: {
-          portFailures: 0,
-          degradation: 0,
-          multipleLOS: 0,
-          oltFailures: 0
-        },
-        slaBreakdown: {
+        portFailures: {
+          count: 0,
+          mttr: 0,
           withinSLA: 0,
-          outsideSLA: 0
+          slaPercentage: 0,
+          clientsAffected: 0
         },
-        clientsAffectedByType: {
-          portFailures: 0,
-          degradation: 0,
-          multipleLOS: 0,
-          oltFailures: 0
+        degradation: {
+          count: 0,
+          mttr: 0,
+          withinSLA: 0,
+          slaPercentage: 0,
+          clientsAffected: 0
+        },
+        multipleLOS: {
+          count: 0,
+          mttr: 0,
+          clientsAffected: 0
+        },
+        oltFailures: {
+          count: 0,
+          mttr: 0,
+          clientsAffected: 0
         }
       };
     }
 
+    // Initialize debug counters for this group
+    if (!debugCounts.portFailures.byGroup[group]) {
+      debugCounts.portFailures.byGroup[group] = 0;
+    }
+
     const stats = assignedGroups[group];
-    const type = incident.fault_type?.toLowerCase();
     const duration = parseFloat(incident.mttr) || 0;
     const clientsAffected = parseInt(incident.clients_affected) || 0;
 
-    // Update basic stats
-    stats.totalIncidents++;
-    stats.totalMTTR += duration;
-    stats.clientsAffected += clientsAffected;
+    // Log the incident details for debugging
+    console.log('Processing incident:', {
+      group,
+      sheetName,
+      duration,
+      clientsAffected
+    });
 
-    // Update incident type stats and clients affected by type
-    if (type?.includes('port')) {
-      stats.portFailuresCount++;
-      stats.portFailuresWithinSLA += calculateSLA(duration, 4);
-      stats.incidentTypes.portFailures++;
-      stats.clientsAffectedByType.portFailures += clientsAffected;
-      stats.slaBreakdown[duration <= 4 ? 'withinSLA' : 'outsideSLA']++;
-    } else if (type?.includes('degrad')) {
-      stats.degradationCount++;
-      stats.degradationWithinSLA += calculateSLA(duration, 8);
-      stats.incidentTypes.degradation++;
-      stats.clientsAffectedByType.degradation += clientsAffected;
-      stats.slaBreakdown[duration <= 8 ? 'withinSLA' : 'outsideSLA']++;
-    } else if (type?.includes('los')) {
-      stats.incidentTypes.multipleLOS++;
-      stats.clientsAffectedByType.multipleLOS += clientsAffected;
-    } else if (type?.includes('olt')) {
-      stats.incidentTypes.oltFailures++;
-      stats.clientsAffectedByType.oltFailures += clientsAffected;
+    // Update stats based on sheet name
+    if (sheetName.includes('port failure')) {
+      stats.portFailures.count++;
+      stats.portFailures.mttr += duration;
+      stats.portFailures.clientsAffected += clientsAffected;
+      if (duration <= 4) { // 4 hours SLA for Port Failures
+        stats.portFailures.withinSLA++;
+      }
+      
+      // Update debug counters
+      debugCounts.portFailures.total++;
+      debugCounts.portFailures.byGroup[group]++;
+      
+      console.log(`Incremented port failures for ${group}:`, {
+        currentCount: stats.portFailures.count,
+        totalDuration: stats.portFailures.mttr,
+        withinSLA: stats.portFailures.withinSLA
+      });
+    } else if (sheetName.includes('degradation')) {
+      stats.degradation.count++;
+      stats.degradation.mttr += duration;
+      stats.degradation.clientsAffected += clientsAffected;
+      if (duration <= 8) { // 8 hours SLA for Degradations
+        stats.degradation.withinSLA++;
+      }
+    } else if (sheetName.includes('multiple los')) {
+      stats.multipleLOS.count++;
+      stats.multipleLOS.mttr += duration;
+      stats.multipleLOS.clientsAffected += clientsAffected;
+    } else if (sheetName.includes('olt failure')) {
+      stats.oltFailures.count++;
+      stats.oltFailures.mttr += duration;
+      stats.oltFailures.clientsAffected += clientsAffected;
     }
+  });
+
+  // Log debug summary
+  console.log('Debug Summary:', {
+    totalIncidents: debugCounts.totalIncidents,
+    portFailuresTotal: debugCounts.portFailures.total,
+    portFailuresByGroup: debugCounts.portFailures.byGroup,
+    allGroups: Object.keys(assignedGroups)
   });
 
   // Calculate final metrics for each group
-  Object.values(assignedGroups).forEach(stats => {
-    // Calculate average MTTR
-    stats.avgMTTR = stats.totalIncidents ? stats.totalMTTR / stats.totalIncidents : 0;
-
-    // Calculate SLA percentages
-    stats.portFailuresSLA = stats.portFailuresCount ? 
-      (stats.portFailuresWithinSLA / stats.portFailuresCount) * 100 : 0;
-    stats.degradationSLA = stats.degradationCount ? 
-      (stats.degradationWithinSLA / stats.degradationCount) * 100 : 0;
-
-    // Calculate overall SLA performance
-    const totalSLAIncidents = stats.slaBreakdown.withinSLA + stats.slaBreakdown.outsideSLA;
-    stats.overallSLAPerformance = totalSLAIncidents > 0 ? 
-      (stats.slaBreakdown.withinSLA / totalSLAIncidents) * 100 : 0;
-
-    // Calculate percentages for incident types
-    const totalIncidentsByType = Object.values(stats.incidentTypes).reduce((sum, count) => sum + count, 0);
-    if (totalIncidentsByType > 0) {
-      Object.keys(stats.incidentTypes).forEach(type => {
-        stats.incidentTypes[`${type}Percentage`] = 
-          (stats.incidentTypes[type] / totalIncidentsByType) * 100;
-      });
+  Object.entries(assignedGroups).forEach(([group, stats]) => {
+    // Calculate Port Failures metrics
+    if (stats.portFailures.count > 0) {
+      stats.portFailures.avgMTTR = stats.portFailures.mttr / stats.portFailures.count;
+      stats.portFailures.slaPercentage = (stats.portFailures.withinSLA / stats.portFailures.count) * 100;
     }
-  });
 
-  console.log('Calculated assigned groups stats:', {
-    groups: Object.keys(assignedGroups),
-    sampleGroup: Object.values(assignedGroups)[0]
+    // Calculate Degradation metrics
+    if (stats.degradation.count > 0) {
+      stats.degradation.avgMTTR = stats.degradation.mttr / stats.degradation.count;
+      stats.degradation.slaPercentage = (stats.degradation.withinSLA / stats.degradation.count) * 100;
+    }
+
+    // Calculate Multiple LOS metrics
+    if (stats.multipleLOS.count > 0) {
+      stats.multipleLOS.avgMTTR = stats.multipleLOS.mttr / stats.multipleLOS.count;
+    }
+
+    // Calculate OLT Failures metrics
+    if (stats.oltFailures.count > 0) {
+      stats.oltFailures.avgMTTR = stats.oltFailures.mttr / stats.oltFailures.count;
+    }
+
+    console.log(`Final metrics for group ${group}:`, {
+      portFailures: stats.portFailures,
+      degradation: stats.degradation,
+      multipleLOS: stats.multipleLOS,
+      oltFailures: stats.oltFailures
+    });
   });
 
   return assignedGroups;
@@ -1013,22 +1070,21 @@ const getFileStatus = async (req, res) => {
   try {
     client = await pool.connect();
     const result = await client.query(
-      'SELECT id, status, processed_rows, error_message FROM analytics_files WHERE id = $1',
+      'SELECT status, processed_rows, error_message FROM analytics_files WHERE id = $1',
       [id]
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'File not found' });
+      res.status(404).json({ error: 'File not found' });
+      return;
     }
     
     res.json(result.rows[0]);
+    client.release();
   } catch (error) {
-    console.error('Error fetching file status:', error);
-    res.status(500).json({ error: 'Error fetching file status' });
-  } finally {
-    if (client) {
-      client.release();
-    }
+    console.error('Error checking file status:', error);
+    if (client) client.release();
+    res.status(500).json({ error: 'Error checking file status' });
   }
 };
 
@@ -1389,7 +1445,5 @@ module.exports = {
   uploadFile,
   getAnalyticsData,
   getUploadHistory,
-  getFileStatus,
-  analyzeData,
-  generatePowerPoint
+  getFileStatus
 }; 
