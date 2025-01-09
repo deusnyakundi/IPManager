@@ -83,10 +83,32 @@ const FileUpload = ({ onFileSelect }) => {
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
+      console.log('Selected file:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
+      
       if (file.size > 10 * 1024 * 1024) {
         setError('File size must be less than 10MB');
         return;
       }
+
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'application/excel',
+        'application/x-excel',
+        'application/x-msexcel'
+      ];
+      
+      if (!validTypes.includes(file.type) && 
+          !file.name.match(/\.(xlsx|xls)$/i)) {
+        setError('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+
       setSelectedFile(file);
       setError('');
     }
@@ -119,7 +141,16 @@ const FileUpload = ({ onFileSelect }) => {
       await fetchUploadHistory();
     } catch (error) {
       console.error('Upload error:', error);
-      setError(error.response?.data?.error || 'Failed to upload file');
+      const errorMessage = error.response?.data?.details || error.response?.data?.error || 'Failed to upload file';
+      setError(errorMessage);
+      // Log detailed error information
+      if (error.response) {
+        console.log('Error response:', {
+          data: error.response.data,
+          status: error.response.status,
+          headers: error.response.headers
+        });
+      }
     }
   };
 

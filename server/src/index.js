@@ -13,6 +13,7 @@ const vlanBlockRoutes = require('./routes/vlanblock.routes');
 const vcidRoutes = require('./routes/vcid.routes');
 const configRoutes = require('./routes/config.routes');
 const analyticsRoutes = require('./routes/analytics.routes');
+const csrfRoutes = require('./routes/csrf.routes');
 const session = require('express-session');
 const ldapAuth = require('./middleware/ldap.middleware');
 const helmet = require('helmet');
@@ -91,6 +92,7 @@ app.use('/api/vlan-ranges', vlanRoutes);
 app.use('/api/vlans', vlanRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api', csrfRoutes);
 
 app.use((err, req, res, next) => {
   logger.error('Unhandled Error', {

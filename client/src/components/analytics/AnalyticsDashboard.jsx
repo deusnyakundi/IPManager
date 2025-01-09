@@ -45,20 +45,21 @@ const AnalyticsDashboard = ({ selectedFile }) => {
 
   useEffect(() => {
     if (selectedFile) {
-      fetchAnalytics(activeTab);
+      fetchAnalytics();
     }
-  }, [selectedFile, activeTab]);
+  }, [selectedFile]);
 
-  const fetchAnalytics = async (type) => {
+  const fetchAnalytics = async () => {
     setLoading(true);
     setError('');
     try {
       const response = await api.get('/analytics/analyze', {
         params: {
           fileId: selectedFile.id,
-          type,
+          type: 'all'
         },
       });
+      console.log('Analytics response:', response.data);
       setData(response.data);
     } catch (error) {
       console.error('Analytics error:', error);
@@ -107,77 +108,210 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   };
 
   const renderSummary = () => {
-    if (!data) return null;
+    if (!data || !data.summary) return null;
+    const summary = data.summary;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2">Total Incidents</h3>
+          <p className="text-2xl">{summary.totalIncidents || 0}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2">Average MTTR (Hours)</h3>
+          <p className="text-2xl">{summary.avgMTTR ? summary.avgMTTR.toFixed(2) : 'N/A'}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2">Total Clients Affected</h3>
+          <p className="text-2xl">{summary.totalClientsAffected || 0}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2">Fault Types</h3>
+          <div className="max-h-40 overflow-y-auto">
+            {summary.faultTypes && Object.entries(summary.faultTypes)
+              .sort((a, b) => b[1] - a[1]) // Sort by count in descending order
+              .map(([type, count]) => (
+                <div key={type} className="flex justify-between items-center text-sm mb-1">
+                  <span className="truncate mr-2">{type}</span>
+                  <span className="font-semibold">{count}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrends = () => {
+    if (!data || !data.trends) return null;
+
+    const { daily, weekly, monthly } = data.trends;
+    
+    // Sort data by date/week/month
+    const sortedDaily = [...daily].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sortedWeekly = [...weekly].sort((a, b) => a.week - b.week);
+    const sortedMonthly = [...monthly].sort((a, b) => a.month.localeCompare(b.month));
 
     return (
       <Grid container spacing={3}>
-        {/* Total Incidents Chart */}
-        <Grid item xs={12} md={6}>
+        {/* Monthly Trends */}
+        <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Total Incidents by Type
+              Monthly Trends
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={Object.entries(data.totalIncidents).map(([key, value]) => ({
-                name: key.replace('_', ' ').toUpperCase(),
-                value,
-              }))}>
+              <LineChart data={sortedMonthly}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="value" fill="#8884d8" name="Incidents" />
-              </BarChart>
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="incidents"
+                  stroke="#8884d8"
+                  name="Incidents"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgMTTR"
+                  stroke="#82ca9d"
+                  name="Avg MTTR"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+        
+        {/* Weekly Trends */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Weekly Trends
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={sortedWeekly}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" label={{ value: 'Week Number', position: 'bottom' }} />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip />
+                <Legend />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="incidents"
+                  stroke="#8884d8"
+                  name="Incidents"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgMTTR"
+                  stroke="#82ca9d"
+                  name="Avg MTTR"
+                />
+              </LineChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
 
-        {/* Average MTTR Chart */}
-        <Grid item xs={12} md={6}>
+        {/* Daily Trends */}
+        <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Average MTTR by Type
+              Daily Trends
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={Object.entries(data.avgMTTR).map(([key, value]) => ({
-                name: key.replace('_', ' ').toUpperCase(),
-                value: parseFloat(value).toFixed(2),
-              }))}>
+              <LineChart data={sortedDaily}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip 
+                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                />
                 <Legend />
-                <Bar dataKey="value" fill="#82ca9d" name="Hours" />
-              </BarChart>
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="incidents"
+                  stroke="#8884d8"
+                  name="Incidents"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgMTTR"
+                  stroke="#82ca9d"
+                  name="Avg MTTR"
+                />
+              </LineChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
+      </Grid>
+    );
+  };
 
-        {/* Clients Affected Chart */}
+  const renderRegional = () => {
+    if (!data || !data.regional) return null;
+
+    // Combine similar regions and aggregate their data
+    const combinedRegions = data.regional.reduce((acc, curr) => {
+      const region = curr.region.toLowerCase().replace(/\./g, '').trim();
+      if (!acc[region]) {
+        acc[region] = {
+          region: curr.region,
+          incidents: 0,
+          avgMTTR: 0,
+          clientsAffected: 0,
+          mttrCount: 0
+        };
+      }
+      acc[region].incidents += curr.incidents;
+      acc[region].clientsAffected += curr.clientsAffected;
+      if (curr.avgMTTR) {
+        acc[region].avgMTTR += curr.avgMTTR;
+        acc[region].mttrCount++;
+      }
+      return acc;
+    }, {});
+
+    // Convert back to array and calculate final averages
+    const regionalData = Object.values(combinedRegions).map(region => ({
+      ...region,
+      avgMTTR: region.mttrCount ? region.avgMTTR / region.mttrCount : 0
+    }));
+
+    return (
+      <Grid container spacing={3}>
+        {/* Regional Distribution */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Total Clients Affected by Type
+              Regional Incident Distribution
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={Object.entries(data.totalClientsAffected).map(([key, value]) => ({
-                    name: key.replace('_', ' ').toUpperCase(),
-                    value,
-                  }))}
+                  data={regionalData}
+                  dataKey="incidents"
+                  nameKey="region"
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
+                  label={({ region, incidents }) => `${region}: ${incidents}`}
                 >
-                  {Object.entries(data.totalClientsAffected).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {regionalData.map((entry, index) => (
+                    <Cell key={entry.region} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -187,172 +321,91 @@ const AnalyticsDashboard = ({ selectedFile }) => {
           </Paper>
         </Grid>
 
-        {/* Top Fault Types */}
+        {/* Regional MTTR */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Top Fault Types
+              Regional Average MTTR
             </Typography>
-            {Object.entries(data.topFaultTypes).map(([category, types]) => (
-              <Box key={category} sx={{ mb: 2 }}>
-                <Typography variant="subtitle1">
-                  {category.replace('_', ' ').toUpperCase()}:
-                </Typography>
-                <ul>
-                  {types.map((type, index) => (
-                    <li key={index}>{type}</li>
-                  ))}
-                </ul>
-              </Box>
-            ))}
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={regionalData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="region" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar 
+                  dataKey="avgMTTR" 
+                  fill="#82ca9d" 
+                  name="Average MTTR (Hours)"
+                  label={{ position: 'top' }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>
     );
   };
 
-  const renderTrends = () => {
-    if (!data) return null;
-
-    return (
-      <Grid container spacing={3}>
-        {Object.entries(data.monthly).map(([category, trends]) => (
-          <Grid item xs={12} key={category}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {category.replace('_', ' ').toUpperCase()} Monthly Trends
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="period"
-                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                  />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                  />
-                  <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="incident_count"
-                    stroke="#8884d8"
-                    name="Incidents"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="avg_mttr"
-                    stroke="#82ca9d"
-                    name="Avg MTTR"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
-
-  const renderRegional = () => {
-    if (!data) return null;
-
-    return (
-      <Grid container spacing={3}>
-        {Object.entries(data.incidentsByRegion).map(([category, regions]) => (
-          <Grid item xs={12} key={category}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {category.replace('_', ' ').toUpperCase()} by Region
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={regions}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="region" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="incident_count" fill="#8884d8" name="Incidents" />
-                  <Bar dataKey="avg_mttr" fill="#82ca9d" name="Avg MTTR" />
-                </BarChart>
-              </ResponsiveContainer>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
-
   const renderImpact = () => {
-    if (!data) return null;
+    if (!data || !data.impact) return null;
+
+    const { highImpactIncidents, impactDistribution } = data.impact;
 
     return (
       <Grid container spacing={3}>
-        {/* Client Impact Distribution */}
-        {Object.entries(data.clientImpactDistribution).map(([category, distribution]) => (
-          <Grid item xs={12} md={6} key={`${category}-clients`}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {category.replace('_', ' ').toUpperCase()} Client Impact Distribution
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={distribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ range, percent }) => `${range} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {distribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </Paper>
-          </Grid>
-        ))}
+        {/* Impact Distribution */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Impact Distribution
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={impactDistribution}
+                  dataKey="count"
+                  nameKey="range"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={({ range, count }) => `${range}: ${count}`}
+                >
+                  {impactDistribution.map((entry, index) => (
+                    <Cell key={entry.range} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
 
-        {/* MTTR Distribution */}
-        {Object.entries(data.mttrDistribution).map(([category, distribution]) => (
-          <Grid item xs={12} md={6} key={`${category}-mttr`}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {category.replace('_', ' ').toUpperCase()} MTTR Distribution
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={distribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ range, percent }) => `${range} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {distribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </Paper>
-          </Grid>
-        ))}
+        {/* High Impact Incidents */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Top 10 High Impact Incidents
+            </Typography>
+            <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+              {highImpactIncidents.map((incident, index) => (
+                <Box key={incident.ticket_number} sx={{ mb: 1, p: 1, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">
+                    #{index + 1} - Ticket: {incident.ticket_number}
+                  </Typography>
+                  <Typography variant="body2">
+                    Clients Affected: {incident.clients_affected}
+                  </Typography>
+                  <Typography variant="body2">
+                    Region: {incident.region}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
     );
   };

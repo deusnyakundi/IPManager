@@ -3,13 +3,128 @@ const path = require('path');
 const fs = require('fs');
 const xlsx = require('xlsx');
 const pool = require('../config/db');
+const PptxGenJS = require('pptxgenjs');
+
+// Helper function to extract total clients from mixed format strings
+function extractTotalClients(row) {
+  // Check various possible column names for client count
+  const clientColumns = [
+    'Clients Affected',
+    'Affected Clients',
+    '__EMPTY_2',  // For sheets with empty column headers
+    'Clients'
+  ];
+  
+  let clientCount;
+  for (const col of clientColumns) {
+    if (row[col] !== undefined) {
+      clientCount = row[col];
+      break;
+    }
+  }
+  
+  if (typeof clientCount === 'number') return clientCount;
+  if (!clientCount) return 0;
+  
+  // Extract all numbers from the string
+  const numbers = clientCount.toString().match(/\d+/g);
+  if (!numbers) return 0;
+  
+  // Sum all numbers found
+  return numbers.reduce((sum, num) => sum + parseInt(num), 0);
+}
+
+// Helper function to parse DD/MM/YYYY or MM/DD/YYYY HH:MM format
+function parseDateString(dateStr) {
+  if (!dateStr) return null;
+  
+  // Handle both DD/MM/YYYY and MM/DD/YYYY formats with optional time
+  const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(?:AM|PM)?)?$/i;
+  const match = dateStr.match(dateRegex);
+  
+  if (match) {
+    let [_, part1, part2, year, hours = '00', minutes = '00', seconds = '00'] = match;
+    
+    // Try to determine if it's MM/DD or DD/MM based on values
+    const isMMDD = parseInt(part1) <= 12;
+    const month = isMMDD ? parseInt(part1) - 1 : parseInt(part2) - 1;
+    const day = isMMDD ? parseInt(part2) : parseInt(part1);
+    
+    // Handle 12-hour format if PM is in the string
+    if (dateStr.toLowerCase().includes('pm') && hours !== '12') {
+      hours = (parseInt(hours) + 12).toString();
+    }
+    
+    return new Date(year, month, day, parseInt(hours), parseInt(minutes), parseInt(seconds));
+  }
+  
+  return null;
+}
+
+// Helper function to convert Excel serial number to JavaScript Date
+function excelDateToJSDate(excelDate) {
+  if (!excelDate) return null;
+  if (typeof excelDate !== 'number') return null;
+  
+  // Excel dates are number of days since 1900-01-01
+  // But Excel incorrectly assumes 1900 was a leap year
+  const EXCEL_EPOCH = new Date(Date.UTC(1899, 11, 30));
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  
+  // Convert Excel date serial number to milliseconds
+  const timeMillis = Math.round((excelDate * MS_PER_DAY));
+  return new Date(EXCEL_EPOCH.getTime() + timeMillis);
+}
+
+// Helper function to parse time duration (HH:MM:SS or decimal hours)
+function parseTimeDuration(duration) {
+  if (typeof duration === 'number') {
+    // If it's already a decimal number (hours), return as is
+    return duration;
+  }
+  
+  if (typeof duration === 'string') {
+    // Check if it's in HH:MM:SS format
+    const timeRegex = /^(\d+):(\d{2}):(\d{2})$/;
+    const match = duration.match(timeRegex);
+    
+    if (match) {
+      const [_, hours, minutes, seconds] = match;
+      return Number(hours) + Number(minutes)/60 + Number(seconds)/3600;
+    }
+  }
+  
+  return null;
+}
+
+// Helper function to safely convert a value to a date
+function safeParseDate(value) {
+  if (!value) return null;
+  
+  // If it's a number (Excel serial date)
+  if (typeof value === 'number') {
+    return excelDateToJSDate(value);
+  }
+  
+  // If it's a string in DD/MM/YYYY format
+  if (typeof value === 'string') {
+    return parseDateString(value);
+  }
+  
+  // If it's already a Date object
+  if (value instanceof Date) {
+    return value;
+  }
+  
+  return null;
+}
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = 'uploads';
+    const uploadDir = path.join(__dirname, '../../uploads');
     if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
@@ -19,52 +134,156 @@ const storage = multer.diskStorage({
   }
 });
 
+const fileFilter = (req, file, cb) => {
+  console.log('File upload attempt:', {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    fieldname: file.fieldname
+  });
+
+  const filetypes = /xlsx|xls/;
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+  
+  // Updated MIME type check to handle various Excel MIME types
+  const validMimeTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'application/excel',
+    'application/x-excel',
+    'application/x-msexcel'
+  ];
+  
+  const mimetype = validMimeTypes.includes(file.mimetype);
+
+  console.log('Validation results:', {
+    extname,
+    mimetype,
+    extension: path.extname(file.originalname).toLowerCase()
+  });
+
+  if (extname && mimetype) {
+    return cb(null, true);
+  }
+  cb(new Error(`Invalid file type. Received mimetype: ${file.mimetype}. Please upload only Excel files (.xlsx, .xls)`));
+};
+
 const upload = multer({
   storage: storage,
-  fileFilter: function (req, file, cb) {
-    const filetypes = /xlsx|xls/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-
-    if (extname && mimetype) {
-      return cb(null, true);
-    } else {
-      cb('Error: Excel files only!');
-    }
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
   }
 }).single('file');
 
 const uploadFile = async (req, res) => {
   upload(req, res, async function (err) {
-    if (err) {
-      return res.status(400).json({ error: err.message || 'Error uploading file' });
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: 'File upload error: ' + err.message });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
     }
 
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    let client;
     try {
-      // Read the Excel file
-      const workbook = xlsx.readFile(req.file.path);
-      const sheetName = workbook.SheetNames[0];
+      // Begin database transaction
+      client = await pool.connect();
+      await client.query('BEGIN');
+      
+      // Insert file record with initial status
+      const fileResult = await client.query(
+        'INSERT INTO analytics_files (filename, original_name, upload_date, uploaded_by, status) VALUES ($1, $2, NOW(), $3, $4) RETURNING id',
+        [req.file.filename, req.file.originalname, req.user.id, 'processing']
+      );
+      const fileId = fileResult.rows[0].id;
+      
+      // Send initial response
+      res.json({
+        message: 'File upload started',
+        fileId: fileId
+      });
+
+      // Process the file asynchronously
+      processExcelFile(req.file.path, fileId, client).catch(async (error) => {
+        console.error('Error processing file:', error);
+        try {
+          await client.query(
+            'UPDATE analytics_files SET status = $1, error_message = $2 WHERE id = $3',
+            ['error', error.message, fileId]
+          );
+          await client.query('COMMIT');
+        } catch (updateError) {
+          console.error('Error updating file status:', updateError);
+          await client.query('ROLLBACK');
+        } finally {
+          client.release();
+        }
+      });
+    } catch (error) {
+      if (client) {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+      console.error('Error initiating file upload:', error);
+      return res.status(500).json({ 
+        error: 'Error initiating file upload',
+        details: error.message 
+      });
+    }
+  });
+};
+
+// Separate function to process Excel file
+async function processExcelFile(filePath, fileId, client) {
+  try {
+    console.log('Starting file processing:', { filePath, fileId });
+
+    const workbook = xlsx.readFile(filePath, { cellDates: false, raw: true });
+    console.log('Excel file read successfully. Sheets:', workbook.SheetNames);
+
+    let totalProcessedRows = 0;
+
+    // Process each sheet
+    for (const sheetName of workbook.SheetNames) {
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet);
+      console.log(`Processing sheet: ${sheetName}, Rows: ${data.length}`);
 
-      // Begin database transaction
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
+      // Process rows for this sheet
+      for (const row of data) {
+        try {
+          // Try different possible column names for dates
+          const reportedDate = safeParseDate(
+            row['Reported Date'] || 
+            row['__EMPTY_5'] || 
+            row['Fault Date']
+          );
+          
+          const clearedDate = safeParseDate(
+            row['Required Resolution DateTime'] || 
+            row['__EMPTY_6'] || 
+            row['Resolution Date']
+          );
 
-        // Insert file record
-        const fileResult = await client.query(
-          'INSERT INTO analytics_files (filename, original_name, upload_date, uploaded_by) VALUES ($1, $2, NOW(), $3) RETURNING id',
-          [req.file.filename, req.file.originalname, req.user.id]
-        );
-        const fileId = fileResult.rows[0].id;
+          const mttr = parseTimeDuration(
+            row['New MTTR'] || 
+            row['Total Duration (hr:min:sec)'] || 
+            row['__EMPTY_7']
+          );
 
-        // Process and insert data
-        for (const row of data) {
+          if (!reportedDate || !clearedDate) {
+            console.warn('Skipping row due to invalid dates:', row);
+            continue;
+          }
+
+          // Try different possible column names for other fields
+          const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
+          const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
+          const faultType = row['Causes'] || row['Fault Type'] || 'Unknown';
+
           await client.query(
             `INSERT INTO analytics_data (
               file_id, 
@@ -74,42 +293,58 @@ const uploadFile = async (req, res) => {
               reported_date,
               cleared_date,
               mttr,
-              clients_affected
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              clients_affected,
+              sheet_name
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
               fileId,
-              row.ticket_number,
-              row.region,
-              row.fault_type,
-              new Date(row.reported_date),
-              new Date(row.cleared_date),
-              row.mttr,
-              row.clients_affected
+              ticketNumber,
+              region,
+              faultType,
+              reportedDate,
+              clearedDate,
+              mttr,
+              extractTotalClients(row),
+              sheetName.trim()
             ]
           );
+          
+          // Update processed rows count in real-time
+          await client.query(
+            'UPDATE analytics_files SET processed_rows = $1 WHERE id = $2',
+            [totalProcessedRows + 1, fileId]
+          );
+          
+          totalProcessedRows++;
+        } catch (rowError) {
+          console.error('Error processing row:', {
+            rowData: row,
+            error: rowError.message
+          });
+          throw rowError;
         }
-
-        await client.query('COMMIT');
-
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
-
-        res.json({
-          message: 'File uploaded and processed successfully',
-          fileId: fileId
-        });
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
       }
-    } catch (error) {
-      console.error('Error processing file:', error);
-      return res.status(500).json({ error: 'Error processing file' });
     }
-  });
-};
+
+    // Update file status to completed
+    await client.query(
+      'UPDATE analytics_files SET status = $1, processed_rows = $2 WHERE id = $3',
+      ['completed', totalProcessedRows, fileId]
+    );
+    
+    await client.query('COMMIT');
+    console.log(`Successfully processed ${totalProcessedRows} rows total`);
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+    console.log('Temporary file cleaned up');
+
+  } catch (error) {
+    console.error('Error processing file:', error);
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
 
 const getAnalyticsData = async (req, res) => {
   const { fileId } = req.query;
@@ -134,6 +369,24 @@ const getAnalyticsData = async (req, res) => {
   } catch (error) {
     console.error('Error fetching analytics data:', error);
     res.status(500).json({ error: 'Error fetching analytics data' });
+  }
+};
+
+const getUploadHistory = async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const result = await client.query(
+      `SELECT af.*, u.username as uploaded_by_username
+       FROM analytics_files af
+       LEFT JOIN users u ON af.uploaded_by = u.id
+       ORDER BY af.upload_date DESC`
+    );
+    
+    res.json(result.rows);
+    client.release();
+  } catch (error) {
+    console.error('Error fetching upload history:', error);
+    res.status(500).json({ error: 'Error fetching upload history' });
   }
 };
 
@@ -275,7 +528,245 @@ function getWeekNumber(date) {
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
+const getFileStatus = async (req, res) => {
+  const { id } = req.params;
+  let client;
+  
+  try {
+    client = await pool.connect();
+    const result = await client.query(
+      'SELECT id, status, processed_rows, error_message FROM analytics_files WHERE id = $1',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching file status:', error);
+    res.status(500).json({ error: 'Error fetching file status' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
+const analyzeData = async (req, res) => {
+  const { fileId, type } = req.query;
+  
+  if (!fileId) {
+    return res.status(400).json({ error: 'File ID is required' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    
+    // First check if the file exists and is processed
+    const fileStatus = await client.query(
+      'SELECT status FROM analytics_files WHERE id = $1',
+      [fileId]
+    );
+
+    if (fileStatus.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (fileStatus.rows[0].status !== 'completed') {
+      return res.status(400).json({ error: 'File processing not completed' });
+    }
+
+    // Get the data for analysis
+    const result = await client.query(
+      'SELECT * FROM analytics_data WHERE file_id = $1',
+      [fileId]
+    );
+
+    let response;
+    switch (type) {
+      case 'summary':
+        response = calculateSummaryStats(result.rows);
+        break;
+      case 'trends':
+        response = calculateTrends(result.rows);
+        break;
+      case 'regional':
+        response = calculateRegionalStats(result.rows);
+        break;
+      case 'impact':
+        response = calculateImpactStats(result.rows);
+        break;
+      case 'all':
+        response = {
+          summary: calculateSummaryStats(result.rows),
+          trends: calculateTrends(result.rows),
+          regional: calculateRegionalStats(result.rows),
+          impact: calculateImpactStats(result.rows)
+        };
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid analysis type' });
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error analyzing data:', error);
+    res.status(500).json({ error: 'Error analyzing data' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
+const generatePowerPoint = async (req, res) => {
+  const { fileId } = req.query;
+  
+  if (!fileId) {
+    return res.status(400).json({ error: 'File ID is required' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    
+    // Get all the analytics data
+    const result = await client.query(
+      'SELECT * FROM analytics_data WHERE file_id = $1',
+      [fileId]
+    );
+
+    // Get file info
+    const fileInfo = await client.query(
+      'SELECT original_name FROM analytics_files WHERE id = $1',
+      [fileId]
+    );
+
+    if (fileInfo.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Calculate all analytics
+    const data = {
+      summary: calculateSummaryStats(result.rows),
+      trends: calculateTrends(result.rows),
+      regional: calculateRegionalStats(result.rows),
+      impact: calculateImpactStats(result.rows)
+    };
+
+    // Create PowerPoint presentation
+    const pptx = new PptxGenJS();
+
+    // Add title slide
+    const titleSlide = pptx.addSlide();
+    titleSlide.addText("Network Analysis Report", {
+      x: 1,
+      y: 1,
+      w: 8,
+      h: 1,
+      fontSize: 24,
+      bold: true,
+      align: "center"
+    });
+    titleSlide.addText(`Based on: ${fileInfo.rows[0].original_name}`, {
+      x: 1,
+      y: 2,
+      w: 8,
+      h: 0.5,
+      fontSize: 14,
+      align: "center"
+    });
+
+    // Add summary slide
+    const summarySlide = pptx.addSlide();
+    summarySlide.addText("Summary Statistics", {
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 0.5,
+      fontSize: 18,
+      bold: true
+    });
+
+    // Add summary stats
+    const summaryData = [
+      ["Total Incidents", data.summary.totalIncidents],
+      ["Average MTTR (Hours)", data.summary.avgMTTR.toFixed(2)],
+      ["Total Clients Affected", data.summary.totalClientsAffected]
+    ];
+
+    summarySlide.addTable(summaryData, {
+      x: 0.5,
+      y: 1,
+      w: 9,
+      h: 2,
+      fontSize: 14
+    });
+
+    // Add fault types chart
+    const faultTypeData = Object.entries(data.summary.faultTypes).map(([type, count]) => ({
+      name: type,
+      value: count
+    }));
+
+    summarySlide.addChart(pptx.ChartType.pie, faultTypeData, {
+      x: 1,
+      y: 3.5,
+      w: 8,
+      h: 3,
+      title: "Fault Type Distribution"
+    });
+
+    // Add regional analysis slide
+    const regionalSlide = pptx.addSlide();
+    regionalSlide.addText("Regional Analysis", {
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 0.5,
+      fontSize: 18,
+      bold: true
+    });
+
+    // Add regional chart
+    regionalSlide.addChart(pptx.ChartType.bar, data.regional, {
+      x: 0.5,
+      y: 1,
+      w: 9,
+      h: 4,
+      title: "Incidents by Region",
+      showValue: true,
+      dataLabelPosition: "outEnd"
+    });
+
+    // Save the presentation
+    const buffer = await pptx.write('nodebuffer');
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.setHeader('Content-Disposition', 'attachment; filename=network_analysis.pptx');
+    
+    // Send the file
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating PowerPoint:', error);
+    res.status(500).json({ error: 'Error generating PowerPoint presentation' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   uploadFile,
-  getAnalyticsData
+  getAnalyticsData,
+  getUploadHistory,
+  getFileStatus,
+  analyzeData,
+  generatePowerPoint
 }; 

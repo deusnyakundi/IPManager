@@ -88,6 +88,11 @@ api.interceptors.request.use(async (config) => {
     return config;
   }
 
+  // Don't set Content-Type for FormData
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   try {
     let csrfToken = getCSRFToken();
     if (!csrfToken || !isValidCSRFToken(csrfToken)) {
@@ -98,7 +103,7 @@ api.interceptors.request.use(async (config) => {
       }
     }
     if (csrfToken) {
-      config.headers['X-CSRF-Token'] = csrfToken;
+      config.headers['X-XSRF-Token'] = csrfToken;
     }
   } catch (error) {
     console.warn('Error setting CSRF token:', error);
