@@ -143,33 +143,132 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-2">Total Incidents</h3>
-          <p className="text-2xl">{summary.totalIncidents || 0}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-2">Average MTTR (Hours)</h3>
-          <p className="text-2xl">{summary.avgMTTR ? summary.avgMTTR.toFixed(2) : 'N/A'}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-2">Total Clients Affected</h3>
-          <p className="text-2xl">{summary.totalClientsAffected || 0}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-2">Fault Types</h3>
-          <div className="max-h-40 overflow-y-auto">
+      <Box sx={{ width: '100%' }}>
+        {/* Main Metrics in Tabs */}
+        <Grid container spacing={4} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 3, 
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                background: 'linear-gradient(to bottom right, #2196f3, #1976d2)',
+                color: 'white'
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'light' }}>
+                Total Incidents
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
+                {summary.totalIncidents || 0}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 3, 
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                background: 'linear-gradient(to bottom right, #4caf50, #388e3c)',
+                color: 'white'
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'light' }}>
+                Average MTTR (Hours)
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
+                {summary.avgMTTR ? summary.avgMTTR.toFixed(2) : 'N/A'}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 3, 
+                textAlign: 'center',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                background: 'linear-gradient(to bottom right, #ff9800, #f57c00)',
+                color: 'white'
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'light' }}>
+                Total Clients Affected
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
+                {summary.totalClientsAffected || 0}
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Fault Types Table */}
+        <Paper elevation={3} sx={{ mt: 3, width: '100%' }}>
+          <Typography variant="h6" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            Fault Types Distribution
+          </Typography>
+          <Box sx={{ p: 2 }}>
+            <Grid container sx={{ 
+              borderBottom: 2, 
+              borderColor: 'primary.main', 
+              pb: 1, 
+              mb: 1,
+              fontWeight: 'bold'
+            }}>
+              <Grid item xs={8}>
+                <Typography variant="subtitle1">Fault Type</Typography>
+              </Grid>
+              <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                <Typography variant="subtitle1">Count</Typography>
+              </Grid>
+              <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                <Typography variant="subtitle1">%</Typography>
+              </Grid>
+            </Grid>
             {summary.faultTypes && Object.entries(summary.faultTypes)
-              .sort((a, b) => b[1] - a[1]) // Sort by count in descending order
-              .map(([type, count]) => (
-                <div key={type} className="flex justify-between items-center text-sm mb-1">
-                  <span className="truncate mr-2">{type}</span>
-                  <span className="font-semibold">{count}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
+              .sort((a, b) => b[1] - a[1])
+              .map(([type, count], index) => {
+                const percentage = ((count / summary.totalIncidents) * 100).toFixed(1);
+                return (
+                  <Grid 
+                    container 
+                    key={type} 
+                    sx={{ 
+                      py: 1,
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  >
+                    <Grid item xs={8}>
+                      <Typography>{type}</Typography>
+                    </Grid>
+                    <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                      <Typography>{count}</Typography>
+                    </Grid>
+                    <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                      <Typography>{percentage}%</Typography>
+                    </Grid>
+                  </Grid>
+                );
+              })}
+          </Box>
+        </Paper>
+      </Box>
     );
   };
 
