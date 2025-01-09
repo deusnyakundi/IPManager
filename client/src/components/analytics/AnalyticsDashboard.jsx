@@ -567,14 +567,9 @@ const AnalyticsDashboard = ({ selectedFile }) => {
       ) : (
         <>
           {activeTab === 'summary' && renderSummary()}
-          {selectedSheet === 'overall' && activeTab === 'trends' && renderTrends()}
+          {activeTab === 'trends' && renderTrends()}
           {activeTab === 'regional' && renderRegional()}
           {activeTab === 'impact' && renderImpact()}
-          {selectedSheet !== 'overall' && activeTab === 'trends' && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Trend analysis is only available for overall statistics
-            </Alert>
-          )}
         </>
       )}
 

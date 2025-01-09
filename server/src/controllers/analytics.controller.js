@@ -563,9 +563,40 @@ function calculateSheetStats(data, sheetName) {
   const avgMTTR = sheetData.reduce((acc, curr) => acc + (parseFloat(curr.mttr) || 0), 0) / totalIncidents;
   const totalClientsAffected = sheetData.reduce((acc, curr) => acc + parseInt(curr.clients_affected), 0);
 
+  // Calculate fault types
   const faultTypes = {};
   sheetData.forEach(incident => {
     faultTypes[incident.fault_type] = (faultTypes[incident.fault_type] || 0) + 1;
+  });
+
+  // Calculate trends for this sheet
+  const daily = {};
+  const weekly = {};
+  const monthly = {};
+
+  sheetData.forEach(incident => {
+    const date = new Date(incident.reported_date);
+    const dayKey = date.toISOString().split('T')[0];
+    const weekKey = getWeekNumber(date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+    // Daily trends
+    if (!daily[dayKey]) daily[dayKey] = { count: 0, mttr: 0, clients: 0 };
+    daily[dayKey].count++;
+    daily[dayKey].mttr += parseFloat(incident.mttr) || 0;
+    daily[dayKey].clients += parseInt(incident.clients_affected);
+
+    // Weekly trends
+    if (!weekly[weekKey]) weekly[weekKey] = { count: 0, mttr: 0, clients: 0 };
+    weekly[weekKey].count++;
+    weekly[weekKey].mttr += parseFloat(incident.mttr) || 0;
+    weekly[weekKey].clients += parseInt(incident.clients_affected);
+
+    // Monthly trends
+    if (!monthly[monthKey]) monthly[monthKey] = { count: 0, mttr: 0, clients: 0 };
+    monthly[monthKey].count++;
+    monthly[monthKey].mttr += parseFloat(incident.mttr) || 0;
+    monthly[monthKey].clients += parseInt(incident.clients_affected);
   });
 
   // Calculate regional distribution for this sheet
@@ -619,6 +650,26 @@ function calculateSheetStats(data, sheetName) {
       avgMTTR,
       totalClientsAffected,
       faultTypes
+    },
+    trends: {
+      daily: Object.entries(daily).map(([date, stats]) => ({
+        date,
+        incidents: stats.count,
+        avgMTTR: stats.mttr / stats.count,
+        clientsAffected: stats.clients
+      })),
+      weekly: Object.entries(weekly).map(([week, stats]) => ({
+        week,
+        incidents: stats.count,
+        avgMTTR: stats.mttr / stats.count,
+        clientsAffected: stats.clients
+      })),
+      monthly: Object.entries(monthly).map(([month, stats]) => ({
+        month,
+        incidents: stats.count,
+        avgMTTR: stats.mttr / stats.count,
+        clientsAffected: stats.clients
+      }))
     },
     regional: regionalStats,
     impact: {
