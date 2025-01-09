@@ -143,7 +143,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     }
 
     return (
-      <Box sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%'}}>
         {/* Main Metrics in Tabs */}
         <Grid container spacing={4} sx={{ mb: 4 }}>
           <Grid item xs={12} md={4}>
@@ -567,9 +567,14 @@ const AnalyticsDashboard = ({ selectedFile }) => {
       ) : (
         <>
           {activeTab === 'summary' && renderSummary()}
-          {activeTab === 'trends' && renderTrends()}
+          {selectedSheet === 'overall' && activeTab === 'trends' && renderTrends()}
           {activeTab === 'regional' && renderRegional()}
           {activeTab === 'impact' && renderImpact()}
+          {selectedSheet !== 'overall' && activeTab === 'trends' && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Trend analysis is only available for overall statistics
+            </Alert>
+          )}
         </>
       )}
 

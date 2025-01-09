@@ -12,7 +12,7 @@ const Analytics = () => {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 4 }}>
+      <Box sx={{ py: 4, height: '100vh', overflow: 'auto' }}>
         <Typography variant="h4" gutterBottom>
           Data Analytics
         </Typography>
