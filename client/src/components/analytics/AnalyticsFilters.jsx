@@ -26,8 +26,10 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 const AnalyticsFilters = ({ onFilterChange, availableFilters }) => {
   const [expanded, setExpanded] = useState(false);
   const [filters, setFilters] = useState({
+    assignedGroups: [],
     regions: [],
     faultTypes: [],
+    faultCauses: [],
     dateRange: {
       start: null,
       end: null,
@@ -60,8 +62,10 @@ const AnalyticsFilters = ({ onFilterChange, availableFilters }) => {
 
   const handleClearFilters = () => {
     const clearedFilters = {
+      assignedGroups: [],
       regions: [],
       faultTypes: [],
+      faultCauses: [],
       dateRange: {
         start: null,
         end: null,
@@ -82,6 +86,7 @@ const AnalyticsFilters = ({ onFilterChange, availableFilters }) => {
     if (filters.minClientsAffected) count++;
     if (filters.maxMTTR) count++;
     if (filters.classification) count++;
+    if (filters.faultCauses.length > 0) count++;
     return count;
   };
 
@@ -149,6 +154,30 @@ const AnalyticsFilters = ({ onFilterChange, availableFilters }) => {
                 {availableFilters?.faultTypes?.map((type) => (
                   <MenuItem key={type} value={type}>
                     {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Fault Causes</InputLabel>
+              <Select
+                multiple
+                value={filters.faultCauses}
+                onChange={(e) => handleFilterChange('faultCauses', e.target.value)}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Chip key={value} label={value} size="small" />
+                    ))}
+                  </Box>
+                )}
+              >
+                {availableFilters?.faultCauses?.map((cause) => (
+                  <MenuItem key={cause} value={cause}>
+                    {cause}
                   </MenuItem>
                 ))}
               </Select>

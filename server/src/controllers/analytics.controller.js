@@ -76,25 +76,64 @@ function excelDateToJSDate(excelDate) {
   return new Date(EXCEL_EPOCH.getTime() + timeMillis);
 }
 
+// Helper function to calculate duration between two dates in hours
+function calculateDurationInHours(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffMillis = end - start;
+  const hours = diffMillis / (1000 * 60 * 60);
+  return Number(hours.toFixed(6));
+}
+
 // Helper function to parse time duration (HH:MM:SS or decimal hours)
 function parseTimeDuration(duration) {
+  if (!duration) return 0;
+
+  // If it's already a number, return it with precision
   if (typeof duration === 'number') {
-    // If it's already a decimal number (hours), return as is
-    return duration;
+    return Number(duration.toFixed(6));
   }
   
   if (typeof duration === 'string') {
+    // Remove whitespace and convert to lowercase
+    duration = duration.trim().toLowerCase();
+
     // Check if it's in HH:MM:SS format
     const timeRegex = /^(\d+):(\d{2}):(\d{2})$/;
     const match = duration.match(timeRegex);
     
     if (match) {
       const [_, hours, minutes, seconds] = match;
-      return Number(hours) + Number(minutes)/60 + Number(seconds)/3600;
+      // Convert to total hours with precision
+      const totalHours = (
+        Number(hours) + 
+        Number(minutes) / 60 + 
+        Number(seconds) / 3600
+      );
+      console.log('Parsed HH:MM:SS format:', {
+        original: duration,
+        hours,
+        minutes,
+        seconds,
+        totalHours: totalHours.toFixed(6)
+      });
+      return Number(totalHours.toFixed(6));
+    }
+
+    // If it's a numeric string, parse it with precision
+    const numericValue = parseFloat(duration);
+    if (!isNaN(numericValue)) {
+      console.log('Parsed numeric string:', {
+        original: duration,
+        parsed: numericValue.toFixed(6)
+      });
+      return Number(numericValue.toFixed(6));
     }
   }
   
-  return null;
+  console.warn('Could not parse duration:', duration);
+  return 0;
 }
 
 // Helper function to safely convert a value to a date
@@ -460,10 +499,15 @@ async function processExcelFile(filePath, fileId, client) {
           );
 
           const mttr = parseTimeDuration(
-            row['New MTTR'] || 
             row['Total Duration (hr:min:sec)'] || 
             row['__EMPTY_7']
           );
+
+          console.log('Raw Duration:', {
+            rawValue: row['Total Duration (hr:min:sec)'] || row['__EMPTY_7'],
+            parsedValue: mttr,
+            sheetName: sheetName
+          });
 
           if (!reportedDate || !clearedDate) {
             console.warn('Skipping row due to invalid dates:', row);
@@ -474,6 +518,7 @@ async function processExcelFile(filePath, fileId, client) {
           const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
           const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
           const assignedGroup = row['Assigned Group'] || row['Assigned'] || row['Team'] || 'Unknown';
+          const faultCause = row['Fault Cause'] || row['Root Cause'] || row['Cause'] || 'Unknown';
 
           // Debug log for Adrian's port failures
           if (assignedGroup.toLowerCase().includes('adrian') && sheetName.toLowerCase().includes('port failure')) {
@@ -482,6 +527,7 @@ async function processExcelFile(filePath, fileId, client) {
               ticketNumber,
               assignedGroup,
               sheetName,
+              faultCause,
               row: JSON.stringify(row)
             });
           }
@@ -491,6 +537,7 @@ async function processExcelFile(filePath, fileId, client) {
             ticket_number: ticketNumber,
             region: region,
             fault_type: sheetName.trim(), // Use sheet name as fault type
+            fault_cause: faultCause,
             assigned_group: assignedGroup,
             reported_date: reportedDate,
             cleared_date: clearedDate,
@@ -506,18 +553,20 @@ async function processExcelFile(filePath, fileId, client) {
               ticket_number,
               region,
               fault_type,
+              fault_cause,
               assigned_group,
               reported_date,
               cleared_date,
               mttr,
               clients_affected,
               sheet_name
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
               incident.file_id,
               incident.ticket_number,
               incident.region,
               incident.fault_type,
+              incident.fault_cause,
               incident.assigned_group,
               incident.reported_date,
               incident.cleared_date,
@@ -583,9 +632,11 @@ function calculateAssignedGroupStats(incidents) {
   // Debug counters
   const debugCounts = {
     totalIncidents: 0,
-    portFailures: {
-      total: 0,
-      byGroup: {}
+    byType: {
+      portFailures: 0,
+      degradation: 0,
+      multipleLOS: 0,
+      oltFailures: 0
     }
   };
 
@@ -594,6 +645,8 @@ function calculateAssignedGroupStats(incidents) {
     
     const group = incident.assigned_group?.trim() || 'Unknown';
     const sheetName = incident.sheet_name?.trim().toLowerCase() || '';
+    const duration = parseTimeDuration(incident.mttr);
+    const clientsAffected = parseInt(incident.clients_affected) || 0;
     
     // Initialize group if not exists
     if (!assignedGroups[group]) {
@@ -603,7 +656,8 @@ function calculateAssignedGroupStats(incidents) {
           mttr: 0,
           withinSLA: 0,
           slaPercentage: 0,
-          clientsAffected: 0
+          clientsAffected: 0,
+          byCategory: {} // Add categories for port failures
         },
         degradation: {
           count: 0,
@@ -625,64 +679,86 @@ function calculateAssignedGroupStats(incidents) {
       };
     }
 
-    // Initialize debug counters for this group
-    if (!debugCounts.portFailures.byGroup[group]) {
-      debugCounts.portFailures.byGroup[group] = 0;
-    }
-
     const stats = assignedGroups[group];
-    const duration = parseFloat(incident.mttr) || 0;
-    const clientsAffected = parseInt(incident.clients_affected) || 0;
-
-    // Log the incident details for debugging
-    console.log('Processing incident:', {
-      group,
-      sheetName,
-      duration,
-      clientsAffected
-    });
 
     // Update stats based on sheet name
     if (sheetName.includes('port failure')) {
       stats.portFailures.count++;
       stats.portFailures.mttr += duration;
       stats.portFailures.clientsAffected += clientsAffected;
+      
+      // Categorize port failures
+      const category = categorizeFault(incident);
+      if (category) {
+        if (!stats.portFailures.byCategory[category]) {
+          stats.portFailures.byCategory[category] = {
+            count: 0,
+            mttr: 0,
+            clientsAffected: 0
+          };
+        }
+        stats.portFailures.byCategory[category].count++;
+        stats.portFailures.byCategory[category].mttr += duration;
+        stats.portFailures.byCategory[category].clientsAffected += clientsAffected;
+      }
+
       if (duration <= 4) { // 4 hours SLA for Port Failures
         stats.portFailures.withinSLA++;
       }
+      debugCounts.byType.portFailures++;
       
-      // Update debug counters
-      debugCounts.portFailures.total++;
-      debugCounts.portFailures.byGroup[group]++;
-      
-      console.log(`Incremented port failures for ${group}:`, {
-        currentCount: stats.portFailures.count,
-        totalDuration: stats.portFailures.mttr,
-        withinSLA: stats.portFailures.withinSLA
+      console.log(`Updated Port Failures for ${group}:`, {
+        count: stats.portFailures.count,
+        totalMTTR: stats.portFailures.mttr,
+        avgMTTR: Number((stats.portFailures.mttr / stats.portFailures.count).toFixed(4)),
+        category
       });
     } else if (sheetName.includes('degradation')) {
+      console.log('Processing Degradation MTTR:', {
+        rawDuration: incident.mttr,
+        parsedDuration: duration,
+        currentTotal: stats.degradation.mttr,
+        newTotal: stats.degradation.mttr + duration,
+        count: stats.degradation.count + 1
+      });
+      
       stats.degradation.count++;
       stats.degradation.mttr += duration;
       stats.degradation.clientsAffected += clientsAffected;
       if (duration <= 8) { // 8 hours SLA for Degradations
         stats.degradation.withinSLA++;
       }
-    } else if (sheetName.includes('multiple los')) {
+      debugCounts.byType.degradation++;
+      
+      console.log(`Updated Degradation for ${group}:`, {
+        count: stats.degradation.count,
+        totalMTTR: stats.degradation.mttr,
+        avgMTTR: Number((stats.degradation.mttr / stats.degradation.count).toFixed(4)),
+        duration
+      });
+    } else if (sheetName.includes('multiple los') || sheetName.includes('los')) {
       stats.multipleLOS.count++;
       stats.multipleLOS.mttr += duration;
       stats.multipleLOS.clientsAffected += clientsAffected;
+      debugCounts.byType.multipleLOS++;
+      
+      console.log(`Updated Multiple LOS for ${group}:`, {
+        count: stats.multipleLOS.count,
+        totalMTTR: stats.multipleLOS.mttr,
+        avgMTTR: Number((stats.multipleLOS.mttr / stats.multipleLOS.count).toFixed(4))
+      });
     } else if (sheetName.includes('olt failure')) {
       stats.oltFailures.count++;
       stats.oltFailures.mttr += duration;
       stats.oltFailures.clientsAffected += clientsAffected;
+      debugCounts.byType.oltFailures++;
     }
   });
 
   // Log debug summary
   console.log('Debug Summary:', {
     totalIncidents: debugCounts.totalIncidents,
-    portFailuresTotal: debugCounts.portFailures.total,
-    portFailuresByGroup: debugCounts.portFailures.byGroup,
+    byType: debugCounts.byType,
     allGroups: Object.keys(assignedGroups)
   });
 
@@ -690,32 +766,36 @@ function calculateAssignedGroupStats(incidents) {
   Object.entries(assignedGroups).forEach(([group, stats]) => {
     // Calculate Port Failures metrics
     if (stats.portFailures.count > 0) {
-      stats.portFailures.avgMTTR = stats.portFailures.mttr / stats.portFailures.count;
-      stats.portFailures.slaPercentage = (stats.portFailures.withinSLA / stats.portFailures.count) * 100;
+      stats.portFailures.avgMTTR = Number((stats.portFailures.mttr / stats.portFailures.count).toFixed(4));
+      stats.portFailures.avgMTTRFormatted = formatTimeHHMMSS(stats.portFailures.avgMTTR);
+      stats.portFailures.slaPercentage = Number(((stats.portFailures.withinSLA / stats.portFailures.count) * 100).toFixed(2));
     }
 
     // Calculate Degradation metrics
     if (stats.degradation.count > 0) {
-      stats.degradation.avgMTTR = stats.degradation.mttr / stats.degradation.count;
-      stats.degradation.slaPercentage = (stats.degradation.withinSLA / stats.degradation.count) * 100;
+      stats.degradation.avgMTTR = Number((stats.degradation.mttr / stats.degradation.count).toFixed(4));
+      stats.degradation.avgMTTRFormatted = formatTimeHHMMSS(stats.degradation.avgMTTR);
+      stats.degradation.slaPercentage = Number(((stats.degradation.withinSLA / stats.degradation.count) * 100).toFixed(2));
+      
+      console.log(`Final Degradation metrics for ${group}:`, {
+        count: stats.degradation.count,
+        totalMTTR: stats.degradation.mttr,
+        avgMTTR: stats.degradation.avgMTTR,
+        formatted: stats.degradation.avgMTTRFormatted
+      });
     }
 
     // Calculate Multiple LOS metrics
     if (stats.multipleLOS.count > 0) {
-      stats.multipleLOS.avgMTTR = stats.multipleLOS.mttr / stats.multipleLOS.count;
+      stats.multipleLOS.avgMTTR = Number((stats.multipleLOS.mttr / stats.multipleLOS.count).toFixed(4));
+      stats.multipleLOS.avgMTTRFormatted = formatTimeHHMMSS(stats.multipleLOS.avgMTTR);
     }
 
     // Calculate OLT Failures metrics
     if (stats.oltFailures.count > 0) {
-      stats.oltFailures.avgMTTR = stats.oltFailures.mttr / stats.oltFailures.count;
+      stats.oltFailures.avgMTTR = Number((stats.oltFailures.mttr / stats.oltFailures.count).toFixed(4));
+      stats.oltFailures.avgMTTRFormatted = formatTimeHHMMSS(stats.oltFailures.avgMTTR);
     }
-
-    console.log(`Final metrics for group ${group}:`, {
-      portFailures: stats.portFailures,
-      degradation: stats.degradation,
-      multipleLOS: stats.multipleLOS,
-      oltFailures: stats.oltFailures
-    });
   });
 
   return assignedGroups;
@@ -744,6 +824,9 @@ const getAnalyticsData = async (req, res) => {
     // Process the data
     const allIncidents = result.rows;
     
+    // Calculate summary stats first
+    const summaryStats = calculateSummaryStats(allIncidents);
+    
     // Calculate trends with partial month indication
     const trends = calculateTrends(allIncidents);
     
@@ -764,7 +847,7 @@ const getAnalyticsData = async (req, res) => {
     // Process and format the data for the frontend
     const data = {
       overall: {
-        summary: calculateSummaryStats(allIncidents),
+        summary: summaryStats, // This now includes portFailureCategories and totalPortFailures
         trends: trends,
         regional: calculateRegionalStats(allIncidents),
         impact: calculateImpactStats(allIncidents),
@@ -777,8 +860,9 @@ const getAnalyticsData = async (req, res) => {
     const sheets = [...new Set(allIncidents.map(incident => incident.sheet_name))];
     sheets.forEach(sheet => {
       const sheetIncidents = allIncidents.filter(incident => incident.sheet_name === sheet);
+      const sheetSummary = calculateSummaryStats(sheetIncidents);
       data.sheets[sheet] = {
-        summary: calculateSummaryStats(sheetIncidents),
+        summary: sheetSummary, // This includes portFailureCategories for the sheet
         trends: calculateTrends(sheetIncidents),
         regional: calculateRegionalStats(sheetIncidents),
         impact: calculateImpactStats(sheetIncidents),
@@ -786,12 +870,17 @@ const getAnalyticsData = async (req, res) => {
       };
     });
 
+    // Debug log to verify data structure
     console.log('Processed data structure:', {
       hasOverallAssignedGroups: !!data.overall.assignedGroups,
       overallAssignedGroupsKeys: Object.keys(data.overall.assignedGroups || {}),
       sheetNames: Object.keys(data.sheets),
       sheetsWithAssignedGroups: Object.keys(data.sheets).filter(sheet => !!data.sheets[sheet].assignedGroups),
-      sampleAssignedGroup: data.overall.assignedGroups ? Object.values(data.overall.assignedGroups)[0] : null
+      sampleAssignedGroup: data.overall.assignedGroups ? Object.values(data.overall.assignedGroups)[0] : null,
+      hasPortFailureCategories: !!data.overall.summary.portFailureCategories,
+      portFailureCategories: Object.keys(data.overall.summary.portFailureCategories || {}),
+      portFailureSample: data.overall.summary.portFailureCategories ? 
+        Object.entries(data.overall.summary.portFailureCategories)[0] : null
     });
     
     res.json(data);
@@ -820,22 +909,114 @@ const getUploadHistory = async (req, res) => {
   }
 };
 
+// Helper function to convert decimal hours to HH:MM:SS
+function formatTimeHHMMSS(decimalHours) {
+  if (!decimalHours && decimalHours !== 0) return 'N/A';
+  
+  // Convert decimal hours to total seconds
+  const totalSeconds = Math.round(decimalHours * 3600);
+  
+  // Calculate hours, minutes, and seconds
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  // Format with leading zeros
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 // Helper functions for data processing
 function calculateSummaryStats(data) {
   const totalIncidents = data.length;
-  const avgMTTR = data.reduce((acc, curr) => acc + parseFloat(curr.mttr), 0) / totalIncidents;
+  let totalMTTR = 0;
+  let totalPortFailures = 0;
+  const portFailureCategories = {};
+
+  // Calculate total MTTR with proper parsing
+  data.forEach(incident => {
+    // First try to get duration from the Total Duration column
+    let duration;
+    const totalDurationStr = incident['Total Duration (hr:min:sec)'] || incident['__EMPTY_7'];
+    
+    if (totalDurationStr) {
+      duration = parseTimeDuration(totalDurationStr);
+    } else {
+      // If Total Duration is not available, calculate from timestamps
+      duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
+    }
+
+    console.log('Duration calculation:', {
+      ticket: incident.ticket_number,
+      totalDurationStr,
+      reportedDate: incident.reported_date,
+      clearedDate: incident.cleared_date,
+      calculatedDuration: duration,
+      originalMTTR: incident.mttr
+    });
+
+    totalMTTR += duration;
+
+    // Track port failure categories
+    if (incident.fault_type?.toLowerCase().includes('port')) {
+      totalPortFailures++;
+      const category = categorizeFault(incident);
+      if (category) {
+        if (!portFailureCategories[category]) {
+          portFailureCategories[category] = {
+            count: 0,
+            mttr: 0,
+            clientsAffected: 0
+          };
+        }
+        portFailureCategories[category].count++;
+        portFailureCategories[category].mttr += duration;
+        portFailureCategories[category].clientsAffected += parseInt(incident.clients_affected) || 0;
+      }
+    }
+  });
+
+  // Calculate average MTTR with precision
+  const avgMTTR = totalIncidents ? Number((totalMTTR / totalIncidents).toFixed(4)) : 0;
+  console.log('MTTR Calculation:', {
+    totalMTTR,
+    totalIncidents,
+    avgMTTR,
+    formatted: formatTimeHHMMSS(avgMTTR)
+  });
+  
+  // Calculate total clients affected
   const totalClientsAffected = data.reduce((acc, curr) => acc + parseInt(curr.clients_affected), 0);
 
+  // Calculate fault types
   const faultTypes = {};
+  const faultCauses = {};
+  const faultTypesByCause = {};
+
   data.forEach(incident => {
+    // Track fault types
     faultTypes[incident.fault_type] = (faultTypes[incident.fault_type] || 0) + 1;
+    
+    // Track fault causes
+    faultCauses[incident.fault_cause] = (faultCauses[incident.fault_cause] || 0) + 1;
+    
+    // Track fault types by cause
+    if (!faultTypesByCause[incident.fault_type]) {
+      faultTypesByCause[incident.fault_type] = {};
+    }
+    faultTypesByCause[incident.fault_type][incident.fault_cause] = 
+      (faultTypesByCause[incident.fault_type][incident.fault_cause] || 0) + 1;
   });
 
   return {
     totalIncidents,
     avgMTTR,
+    avgMTTRFormatted: formatTimeHHMMSS(avgMTTR),
     totalClientsAffected,
-    faultTypes
+    faultTypes,
+    faultCauses,
+    faultTypesByCause,
+    totalPortFailures,
+    portFailureCategories
   };
 }
 
@@ -1007,14 +1188,15 @@ function calculateRegionalStats(data) {
       };
     }
     regions[incident.region].incidents++;
-    regions[incident.region].mttr += parseFloat(incident.mttr);
+    regions[incident.region].mttr += parseTimeDuration(incident.mttr);
     regions[incident.region].clients += parseInt(incident.clients_affected);
   });
 
   return Object.entries(regions).map(([region, stats]) => ({
     region,
     incidents: stats.incidents,
-    avgMTTR: stats.mttr / stats.incidents,
+    avgMTTR: Number((stats.mttr / stats.incidents).toFixed(4)),
+    avgMTTRFormatted: formatTimeHHMMSS(stats.mttr / stats.incidents),
     clientsAffected: stats.clients
   }));
 }
@@ -1440,6 +1622,26 @@ const generatePowerPoint = async (req, res) => {
     }
   }
 };
+
+// Add function to categorize port failures
+function categorizeFault(incident) {
+  const type = incident.fault_type?.toLowerCase() || '';
+  const cause = incident.fault_cause?.toLowerCase() || '';
+  
+  if (type.includes('port failure') || type.includes('port')) {
+    // Categorize port failures
+    if (cause.includes('power')) return 'Power Related';
+    if (cause.includes('config')) return 'Configuration';
+    if (cause.includes('fiber')) return 'Fiber Issue';
+    if (cause.includes('hardware')) return 'Hardware Failure';
+    if (cause.includes('cable')) return 'Cable Issue';
+    if (cause.includes('disconnect')) return 'Disconnection';
+    if (cause.includes('unknown')) return 'Unknown';
+    // Add more categories as needed
+    return 'Other';
+  }
+  return null;
+}
 
 module.exports = {
   uploadFile,

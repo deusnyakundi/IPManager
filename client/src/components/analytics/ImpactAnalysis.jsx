@@ -48,6 +48,7 @@ const ImpactAnalysis = ({ data }) => {
     highImpactIncidents,
     clientImpactDistribution,
     mttrDistribution,
+    faultCauseDistribution,
   } = data;
 
   const formatDate = (dateString) => {
@@ -93,6 +94,7 @@ const ImpactAnalysis = ({ data }) => {
                       <TableCell>Ticket Number</TableCell>
                       <TableCell>Region</TableCell>
                       <TableCell>Fault Type</TableCell>
+                      <TableCell>Fault Cause</TableCell>
                       <TableCell>Reported Date</TableCell>
                       <TableCell>Cleared Date</TableCell>
                       <TableCell>MTTR (hours)</TableCell>
@@ -105,6 +107,7 @@ const ImpactAnalysis = ({ data }) => {
                         <TableCell>{incident.ticket_number}</TableCell>
                         <TableCell>{incident.region}</TableCell>
                         <TableCell>{incident.fault_type}</TableCell>
+                        <TableCell>{incident.fault_cause}</TableCell>
                         <TableCell>{formatDate(incident.reported_date)}</TableCell>
                         <TableCell>{formatDate(incident.cleared_date)}</TableCell>
                         <TableCell>{parseFloat(incident.mttr).toFixed(2)}</TableCell>
@@ -137,6 +140,40 @@ const ImpactAnalysis = ({ data }) => {
                       label
                     >
                       {clientImpactDistribution[category]?.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Fault Cause Distribution
+              </Typography>
+              <Box height={300}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={faultCauseDistribution[category]}
+                      dataKey="count"
+                      nameKey="cause"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label
+                    >
+                      {faultCauseDistribution[category]?.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={COLORS[index % COLORS.length]}
@@ -204,6 +241,10 @@ const ImpactAnalysis = ({ data }) => {
                         range: item.range,
                         'MTTR': item.count,
                       })) || [],
+                      ...faultCauseDistribution[category]?.map(item => ({
+                        range: item.cause,
+                        'Fault Causes': item.count,
+                      })) || [],
                     ]}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -211,14 +252,9 @@ const ImpactAnalysis = ({ data }) => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar
-                      dataKey="Client Impact"
-                      fill={theme.palette.primary.main}
-                    />
-                    <Bar
-                      dataKey="MTTR"
-                      fill={theme.palette.secondary.main}
-                    />
+                    <Bar dataKey="Client Impact" fill={theme.palette.primary.main} />
+                    <Bar dataKey="MTTR" fill={theme.palette.secondary.main} />
+                    <Bar dataKey="Fault Causes" fill={theme.palette.error.main} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>

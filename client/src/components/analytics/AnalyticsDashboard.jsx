@@ -201,10 +201,13 @@ const AnalyticsDashboard = ({ selectedFile }) => {
               }}
             >
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 'light' }}>
-                Average MTTR (Hours)
+                Average MTTR
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
-                {summary.avgMTTR ? summary.avgMTTR.toFixed(2) : 'N/A'}
+                {summary.avgMTTRFormatted || 'N/A'}
+              </Typography>
+              <Typography variant="caption" sx={{ mt: 1, opacity: 0.8 }}>
+                (HH:MM:SS)
               </Typography>
             </Paper>
           </Grid>
