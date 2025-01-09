@@ -12,19 +12,6 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Check for session timeout
-    if (checkSessionTimeout()) {
-      handleLogout('Your session has expired. Please log in again.');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const response = await api.get('/auth/me');
       setUser(response.data);
@@ -44,10 +31,8 @@ export const AuthProvider = ({ children }) => {
   const handleLogin = async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials);
-      const { token, refreshToken, user: userData } = response.data;
+      const { user: userData } = response.data;
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('lastActivity', new Date().getTime().toString());
       
       setUser(userData);
@@ -70,10 +55,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const handleLogout = (message = '') => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+  const handleLogout = async (message = '') => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+
     localStorage.removeItem('lastActivity');
     setUser(null);
     setIsAuthenticated(false);

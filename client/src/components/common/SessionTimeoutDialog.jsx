@@ -9,7 +9,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { resetSessionTimeout, SESSION_WARNING_EVENT_NAME } from '../../utils/sessionManager';
+import { resetSessionTimeout, SESSION_WARNING_EVENT } from '../../utils/sessionManager';
 import { useAuth } from '../../context/AuthContext';
 
 const UPDATE_INTERVAL = 1000; // Update countdown every second
@@ -30,10 +30,10 @@ const SessionTimeoutDialog = () => {
     };
 
     // Add event listener for session warning
-    window.addEventListener(SESSION_WARNING_EVENT_NAME, handleSessionWarning);
+    window.addEventListener(SESSION_WARNING_EVENT, handleSessionWarning);
 
     return () => {
-      window.removeEventListener(SESSION_WARNING_EVENT_NAME, handleSessionWarning);
+      window.removeEventListener(SESSION_WARNING_EVENT, handleSessionWarning);
     };
   }, []);
 

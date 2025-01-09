@@ -9,7 +9,7 @@ let activityTimeoutId = null;
 let checkIntervalId = null;
 
 // Create a custom event name constant
-const SESSION_WARNING_EVENT = 'sessionWarning';
+export const SESSION_WARNING_EVENT = 'sessionWarning';
 
 const updateLastActivity = () => {
   localStorage.setItem('lastActivity', new Date().getTime().toString());
@@ -89,10 +89,6 @@ const handleSessionTimeout = (navigate) => {
   clearTimeout(activityTimeoutId);
   clearInterval(checkIntervalId);
 
-  // Clear session data
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
   localStorage.removeItem('lastActivity');
 
   // Redirect to login with message
@@ -106,9 +102,8 @@ const handleSessionTimeout = (navigate) => {
 
 export const checkSessionTimeout = () => {
   const lastActivity = localStorage.getItem('lastActivity');
-  const token = localStorage.getItem('token');
   
-  if (token && lastActivity) {
+  if (lastActivity) {
     const currentTime = new Date().getTime();
     const timeSinceLastActivity = currentTime - parseInt(lastActivity);
     
@@ -135,10 +130,7 @@ export const useSessionTimeout = () => {
       // Debounce the reset to prevent excessive calls
       clearTimeout(activityTimeoutId);
       activityTimeoutId = setTimeout(() => {
-        // Only reset if there's an active session
-        if (localStorage.getItem('token')) {
-          resetSessionTimeout(navigate);
-        }
+        resetSessionTimeout(navigate);
       }, 1000); // Wait 1 second after last activity
     };
 
@@ -152,10 +144,7 @@ export const useSessionTimeout = () => {
     if (checkSessionTimeout()) {
       handleSessionTimeout(navigate);
     } else {
-      // Initialize the first timeout only if there's an active session
-      if (localStorage.getItem('token')) {
-        initializeSessionTimeout(navigate);
-      }
+      initializeSessionTimeout(navigate);
     }
 
     // Cleanup function
@@ -172,7 +161,4 @@ export const useSessionTimeout = () => {
   };
 
   return { setupActivityListeners };
-};
-
-// Export the event name for components to listen to
-export const SESSION_WARNING_EVENT_NAME = SESSION_WARNING_EVENT; 
+}; 

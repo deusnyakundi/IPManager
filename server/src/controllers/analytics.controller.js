@@ -236,7 +236,196 @@ const uploadFile = async (req, res) => {
   });
 };
 
-// Separate function to process Excel file
+// Add new helper functions for SLA calculations
+function calculateSLA(duration, target) {
+  return duration <= target ? 1 : 0;
+}
+
+function aggregateWeeklyData(incidents) {
+  const weeklyData = {};
+  
+  incidents.forEach(incident => {
+    const date = new Date(incident.reported_date);
+    // Get the Monday of the week
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - date.getDay() + 1);
+    const weekKey = monday.toISOString().split('T')[0];
+    
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = {
+        period: weekKey,
+        totalIncidents: 0,
+        totalMTTR: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0,
+        byAssignedGroup: {},
+        byIncidentType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        }
+      };
+    }
+    
+    const week = weeklyData[weekKey];
+    week.totalIncidents++;
+    week.totalMTTR += parseFloat(incident.total_duration) || 0;
+    week.clientsAffected += extractTotalClients(incident);
+    
+    // Track by incident type
+    const type = incident.fault_type?.toLowerCase();
+    if (type?.includes('port')) {
+      week.portFailuresCount++;
+      week.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      week.byIncidentType.portFailures++;
+    } else if (type?.includes('degrad')) {
+      week.degradationCount++;
+      week.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      week.byIncidentType.degradation++;
+    } else if (type?.includes('los')) {
+      week.byIncidentType.multipleLOS++;
+    } else if (type?.includes('olt')) {
+      week.byIncidentType.oltFailures++;
+    }
+    
+    // Track by assigned group
+    const group = incident.assigned_group || 'Unknown';
+    if (!week.byAssignedGroup[group]) {
+      week.byAssignedGroup[group] = {
+        totalIncidents: 0,
+        totalMTTR: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0
+      };
+    }
+    
+    const groupStats = week.byAssignedGroup[group];
+    groupStats.totalIncidents++;
+    groupStats.totalMTTR += parseFloat(incident.total_duration) || 0;
+    groupStats.clientsAffected += extractTotalClients(incident);
+    
+    if (type?.includes('port')) {
+      groupStats.portFailuresCount++;
+      groupStats.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+    } else if (type?.includes('degrad')) {
+      groupStats.degradationCount++;
+      groupStats.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+    }
+  });
+  
+  // Calculate averages and percentages
+  Object.values(weeklyData).forEach(week => {
+    week.avgMTTR = week.totalIncidents ? week.totalMTTR / week.totalIncidents : 0;
+    week.portFailuresSLA = week.portFailuresCount ? 
+      (week.portFailuresWithinSLA / week.portFailuresCount) * 100 : 0;
+    week.degradationSLA = week.degradationCount ? 
+      (week.degradationWithinSLA / week.degradationCount) * 100 : 0;
+    
+    Object.values(week.byAssignedGroup).forEach(group => {
+      group.avgMTTR = group.totalIncidents ? group.totalMTTR / group.totalIncidents : 0;
+      group.portFailuresSLA = group.portFailuresCount ? 
+        (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
+      group.degradationSLA = group.degradationCount ? 
+        (group.degradationWithinSLA / group.degradationCount) * 100 : 0;
+    });
+  });
+  
+  return Object.values(weeklyData).sort((a, b) => a.period.localeCompare(b.period));
+}
+
+function aggregateMonthlyData(weeklyData) {
+  const monthlyData = {};
+  
+  weeklyData.forEach(week => {
+    const monthKey = week.period.substring(0, 7); // YYYY-MM
+    
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = {
+        period: monthKey,
+        totalIncidents: 0,
+        totalMTTR: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0,
+        byAssignedGroup: {},
+        byIncidentType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        }
+      };
+    }
+    
+    const month = monthlyData[monthKey];
+    month.totalIncidents += week.totalIncidents;
+    month.totalMTTR += week.totalMTTR;
+    month.clientsAffected += week.clientsAffected;
+    month.portFailuresCount += week.portFailuresCount;
+    month.portFailuresWithinSLA += week.portFailuresWithinSLA;
+    month.degradationCount += week.degradationCount;
+    month.degradationWithinSLA += week.degradationWithinSLA;
+    
+    // Aggregate incident types
+    Object.entries(week.byIncidentType).forEach(([type, count]) => {
+      month.byIncidentType[type] += count;
+    });
+    
+    // Aggregate assigned group data
+    Object.entries(week.byAssignedGroup).forEach(([group, stats]) => {
+      if (!month.byAssignedGroup[group]) {
+        month.byAssignedGroup[group] = {
+          totalIncidents: 0,
+          totalMTTR: 0,
+          clientsAffected: 0,
+          portFailuresCount: 0,
+          portFailuresWithinSLA: 0,
+          degradationCount: 0,
+          degradationWithinSLA: 0
+        };
+      }
+      
+      const monthGroup = month.byAssignedGroup[group];
+      monthGroup.totalIncidents += stats.totalIncidents;
+      monthGroup.totalMTTR += stats.totalMTTR;
+      monthGroup.clientsAffected += stats.clientsAffected;
+      monthGroup.portFailuresCount += stats.portFailuresCount;
+      monthGroup.portFailuresWithinSLA += stats.portFailuresWithinSLA;
+      monthGroup.degradationCount += stats.degradationCount;
+      monthGroup.degradationWithinSLA += stats.degradationWithinSLA;
+    });
+  });
+  
+  // Calculate averages and percentages
+  Object.values(monthlyData).forEach(month => {
+    month.avgMTTR = month.totalIncidents ? month.totalMTTR / month.totalIncidents : 0;
+    month.portFailuresSLA = month.portFailuresCount ? 
+      (month.portFailuresWithinSLA / month.portFailuresCount) * 100 : 0;
+    month.degradationSLA = month.degradationCount ? 
+      (month.degradationWithinSLA / month.degradationCount) * 100 : 0;
+    
+    Object.values(month.byAssignedGroup).forEach(group => {
+      group.avgMTTR = group.totalIncidents ? group.totalMTTR / group.totalIncidents : 0;
+      group.portFailuresSLA = group.portFailuresCount ? 
+        (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
+      group.degradationSLA = group.degradationCount ? 
+        (group.degradationWithinSLA / group.degradationCount) * 100 : 0;
+    });
+  });
+  
+  return Object.values(monthlyData).sort((a, b) => a.period.localeCompare(b.period));
+}
+
+// Update the processExcelFile function to handle assigned groups
 async function processExcelFile(filePath, fileId, client) {
   try {
     console.log('Starting file processing:', { filePath, fileId });
@@ -245,6 +434,7 @@ async function processExcelFile(filePath, fileId, client) {
     console.log('Excel file read successfully. Sheets:', workbook.SheetNames);
 
     let totalProcessedRows = 0;
+    let allIncidents = [];
 
     // Process each sheet
     for (const sheetName of workbook.SheetNames) {
@@ -283,31 +473,50 @@ async function processExcelFile(filePath, fileId, client) {
           const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
           const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
           const faultType = row['Causes'] || row['Fault Type'] || 'Unknown';
+          const assignedGroup = row['Assigned Group'] || row['Assigned'] || row['Team'] || 'Unknown';
 
+          const incident = {
+            file_id: fileId,
+            ticket_number: ticketNumber,
+            region: region,
+            fault_type: faultType,
+            assigned_group: assignedGroup,
+            reported_date: reportedDate,
+            cleared_date: clearedDate,
+            total_duration: mttr,
+            clients_affected: extractTotalClients(row),
+            sheet_name: sheetName.trim()
+          };
+
+          // Store in database
           await client.query(
             `INSERT INTO analytics_data (
               file_id, 
               ticket_number,
               region,
               fault_type,
+              assigned_group,
               reported_date,
               cleared_date,
               mttr,
               clients_affected,
               sheet_name
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
-              fileId,
-              ticketNumber,
-              region,
-              faultType,
-              reportedDate,
-              clearedDate,
-              mttr,
-              extractTotalClients(row),
-              sheetName.trim()
+              incident.file_id,
+              incident.ticket_number,
+              incident.region,
+              incident.fault_type,
+              incident.assigned_group,
+              incident.reported_date,
+              incident.cleared_date,
+              incident.total_duration,
+              incident.clients_affected,
+              incident.sheet_name
             ]
           );
+
+          allIncidents.push(incident);
           
           // Update processed rows count in real-time
           await client.query(
@@ -326,10 +535,19 @@ async function processExcelFile(filePath, fileId, client) {
       }
     }
 
-    // Update file status to completed
+    // Process analytics data
+    const processedData = {
+      summary: calculateSummaryStats(allIncidents),
+      trends: calculateTrends(allIncidents),
+      assignedGroups: calculateAssignedGroupStats(allIncidents),
+      regional: calculateRegionalStats(allIncidents),
+      impact: calculateImpactStats(allIncidents)
+    };
+
+    // Save processed data to database
     await client.query(
-      'UPDATE analytics_files SET status = $1, processed_rows = $2 WHERE id = $3',
-      ['completed', totalProcessedRows, fileId]
+      'UPDATE analytics_files SET processed_data = $1, status = $2 WHERE id = $3',
+      [JSON.stringify(processedData), 'completed', fileId]
     );
     
     await client.query('COMMIT');
@@ -339,11 +557,111 @@ async function processExcelFile(filePath, fileId, client) {
     fs.unlinkSync(filePath);
     console.log('Temporary file cleaned up');
 
+    return processedData;
   } catch (error) {
     console.error('Error processing file:', error);
-    await client.query('ROLLBACK');
     throw error;
   }
+}
+
+// Add new function to calculate assigned group statistics
+function calculateAssignedGroupStats(incidents) {
+  const assignedGroups = {};
+
+  incidents.forEach(incident => {
+    const group = incident.assigned_group || 'Unknown';
+    if (!assignedGroups[group]) {
+      assignedGroups[group] = {
+        totalIncidents: 0,
+        totalMTTR: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0,
+        incidentTypes: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        },
+        slaBreakdown: {
+          withinSLA: 0,
+          outsideSLA: 0
+        },
+        clientsAffectedByType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        }
+      };
+    }
+
+    const stats = assignedGroups[group];
+    const type = incident.fault_type?.toLowerCase();
+    const duration = parseFloat(incident.mttr) || 0;
+    const clientsAffected = parseInt(incident.clients_affected) || 0;
+
+    // Update basic stats
+    stats.totalIncidents++;
+    stats.totalMTTR += duration;
+    stats.clientsAffected += clientsAffected;
+
+    // Update incident type stats and clients affected by type
+    if (type?.includes('port')) {
+      stats.portFailuresCount++;
+      stats.portFailuresWithinSLA += calculateSLA(duration, 4);
+      stats.incidentTypes.portFailures++;
+      stats.clientsAffectedByType.portFailures += clientsAffected;
+      stats.slaBreakdown[duration <= 4 ? 'withinSLA' : 'outsideSLA']++;
+    } else if (type?.includes('degrad')) {
+      stats.degradationCount++;
+      stats.degradationWithinSLA += calculateSLA(duration, 8);
+      stats.incidentTypes.degradation++;
+      stats.clientsAffectedByType.degradation += clientsAffected;
+      stats.slaBreakdown[duration <= 8 ? 'withinSLA' : 'outsideSLA']++;
+    } else if (type?.includes('los')) {
+      stats.incidentTypes.multipleLOS++;
+      stats.clientsAffectedByType.multipleLOS += clientsAffected;
+    } else if (type?.includes('olt')) {
+      stats.incidentTypes.oltFailures++;
+      stats.clientsAffectedByType.oltFailures += clientsAffected;
+    }
+  });
+
+  // Calculate final metrics for each group
+  Object.values(assignedGroups).forEach(stats => {
+    // Calculate average MTTR
+    stats.avgMTTR = stats.totalIncidents ? stats.totalMTTR / stats.totalIncidents : 0;
+
+    // Calculate SLA percentages
+    stats.portFailuresSLA = stats.portFailuresCount ? 
+      (stats.portFailuresWithinSLA / stats.portFailuresCount) * 100 : 0;
+    stats.degradationSLA = stats.degradationCount ? 
+      (stats.degradationWithinSLA / stats.degradationCount) * 100 : 0;
+
+    // Calculate overall SLA performance
+    const totalSLAIncidents = stats.slaBreakdown.withinSLA + stats.slaBreakdown.outsideSLA;
+    stats.overallSLAPerformance = totalSLAIncidents > 0 ? 
+      (stats.slaBreakdown.withinSLA / totalSLAIncidents) * 100 : 0;
+
+    // Calculate percentages for incident types
+    const totalIncidentsByType = Object.values(stats.incidentTypes).reduce((sum, count) => sum + count, 0);
+    if (totalIncidentsByType > 0) {
+      Object.keys(stats.incidentTypes).forEach(type => {
+        stats.incidentTypes[`${type}Percentage`] = 
+          (stats.incidentTypes[type] / totalIncidentsByType) * 100;
+      });
+    }
+  });
+
+  console.log('Calculated assigned groups stats:', {
+    groups: Object.keys(assignedGroups),
+    sampleGroup: Object.values(assignedGroups)[0]
+  });
+
+  return assignedGroups;
 }
 
 const getAnalyticsData = async (req, res) => {
@@ -356,13 +674,68 @@ const getAnalyticsData = async (req, res) => {
       [fileId]
     );
     
+    // Get file info to check if it's a partial month
+    const fileInfo = await client.query(
+      'SELECT upload_date FROM analytics_files WHERE id = $1',
+      [fileId]
+    );
+
+    const uploadDate = new Date(fileInfo.rows[0].upload_date);
+    const currentMonth = uploadDate.getMonth();
+    const currentYear = uploadDate.getFullYear();
+
+    // Process the data
+    const allIncidents = result.rows;
+    
+    // Calculate trends with partial month indication
+    const trends = calculateTrends(allIncidents);
+    
+    // Mark current month as partial if we're still in it
+    const today = new Date();
+    if (trends.monthly.length > 0) {
+      const lastMonth = trends.monthly[trends.monthly.length - 1];
+      if (lastMonth.month === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}` &&
+          currentMonth === today.getMonth() && 
+          currentYear === today.getFullYear()) {
+        lastMonth.isPartialData = true;
+      }
+    }
+
+    // Calculate assigned groups stats
+    const assignedGroups = calculateAssignedGroupStats(allIncidents);
+    
     // Process and format the data for the frontend
     const data = {
-      summary: calculateSummaryStats(result.rows),
-      trends: calculateTrends(result.rows),
-      regional: calculateRegionalStats(result.rows),
-      impact: calculateImpactStats(result.rows)
+      overall: {
+        summary: calculateSummaryStats(allIncidents),
+        trends: trends,
+        regional: calculateRegionalStats(allIncidents),
+        impact: calculateImpactStats(allIncidents),
+        assignedGroups: assignedGroups
+      },
+      sheets: {}
     };
+
+    // Process per-sheet data
+    const sheets = [...new Set(allIncidents.map(incident => incident.sheet_name))];
+    sheets.forEach(sheet => {
+      const sheetIncidents = allIncidents.filter(incident => incident.sheet_name === sheet);
+      data.sheets[sheet] = {
+        summary: calculateSummaryStats(sheetIncidents),
+        trends: calculateTrends(sheetIncidents),
+        regional: calculateRegionalStats(sheetIncidents),
+        impact: calculateImpactStats(sheetIncidents),
+        assignedGroups: calculateAssignedGroupStats(sheetIncidents)
+      };
+    });
+
+    console.log('Processed data structure:', {
+      hasOverallAssignedGroups: !!data.overall.assignedGroups,
+      overallAssignedGroupsKeys: Object.keys(data.overall.assignedGroups || {}),
+      sheetNames: Object.keys(data.sheets),
+      sheetsWithAssignedGroups: Object.keys(data.sheets).filter(sheet => !!data.sheets[sheet].assignedGroups),
+      sampleAssignedGroup: data.overall.assignedGroups ? Object.values(data.overall.assignedGroups)[0] : null
+    });
     
     res.json(data);
     client.release();
@@ -410,54 +783,159 @@ function calculateSummaryStats(data) {
 }
 
 function calculateTrends(data) {
-  const daily = {};
   const weekly = {};
   const monthly = {};
 
   data.forEach(incident => {
     const date = new Date(incident.reported_date);
-    const dayKey = date.toISOString().split('T')[0];
-    const weekKey = getWeekNumber(date);
+    
+    // Get week number
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay() + 1); // Start of week (Monday)
+    const weekKey = weekStart.toISOString().split('T')[0];
+    const weekNumber = getWeekNumber(date);
+    
+    // Get month
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Initialize week data
+    if (!weekly[weekKey]) {
+      weekly[weekKey] = {
+        week: weekNumber,
+        period: weekKey,
+        incidents: 0,
+        mttr: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0,
+        clientsAffectedByType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        },
+        byAssignedGroup: {}
+      };
+    }
+    
+    // Initialize month data
+    if (!monthly[monthKey]) {
+      monthly[monthKey] = {
+        month: monthKey,
+        incidents: 0,
+        mttr: 0,
+        clientsAffected: 0,
+        portFailuresCount: 0,
+        portFailuresWithinSLA: 0,
+        degradationCount: 0,
+        degradationWithinSLA: 0,
+        clientsAffectedByType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
+        },
+        byAssignedGroup: {}
+      };
+    }
 
-    // Daily trends
-    if (!daily[dayKey]) daily[dayKey] = { count: 0, mttr: 0, clients: 0 };
-    daily[dayKey].count++;
-    daily[dayKey].mttr += parseFloat(incident.mttr);
-    daily[dayKey].clients += parseInt(incident.clients_affected);
+    const weekData = weekly[weekKey];
+    const monthData = monthly[monthKey];
+    const duration = parseFloat(incident.mttr) || 0;
+    const clientsAffected = parseInt(incident.clients_affected) || 0;
+    const type = incident.fault_type?.toLowerCase();
+    const group = incident.assigned_group || 'Unknown';
 
-    // Weekly trends
-    if (!weekly[weekKey]) weekly[weekKey] = { count: 0, mttr: 0, clients: 0 };
-    weekly[weekKey].count++;
-    weekly[weekKey].mttr += parseFloat(incident.mttr);
-    weekly[weekKey].clients += parseInt(incident.clients_affected);
+    // Update weekly stats
+    weekData.incidents++;
+    weekData.mttr += duration;
+    weekData.clientsAffected += clientsAffected;
 
-    // Monthly trends
-    if (!monthly[monthKey]) monthly[monthKey] = { count: 0, mttr: 0, clients: 0 };
-    monthly[monthKey].count++;
-    monthly[monthKey].mttr += parseFloat(incident.mttr);
-    monthly[monthKey].clients += parseInt(incident.clients_affected);
+    // Initialize assigned group for week if not exists
+    if (!weekData.byAssignedGroup[group]) {
+      weekData.byAssignedGroup[group] = {
+        totalIncidents: 0,
+        mttr: 0,
+        clientsAffected: 0
+      };
+    }
+    weekData.byAssignedGroup[group].totalIncidents++;
+    weekData.byAssignedGroup[group].mttr += duration;
+    weekData.byAssignedGroup[group].clientsAffected += clientsAffected;
+
+    // Update monthly stats
+    monthData.incidents++;
+    monthData.mttr += duration;
+    monthData.clientsAffected += clientsAffected;
+
+    // Initialize assigned group for month if not exists
+    if (!monthData.byAssignedGroup[group]) {
+      monthData.byAssignedGroup[group] = {
+        totalIncidents: 0,
+        mttr: 0,
+        clientsAffected: 0
+      };
+    }
+    monthData.byAssignedGroup[group].totalIncidents++;
+    monthData.byAssignedGroup[group].mttr += duration;
+    monthData.byAssignedGroup[group].clientsAffected += clientsAffected;
+
+    // Update fault type specific stats
+    if (type?.includes('port')) {
+      weekData.portFailuresCount++;
+      weekData.portFailuresWithinSLA += calculateSLA(duration, 4);
+      weekData.clientsAffectedByType.portFailures += clientsAffected;
+      
+      monthData.portFailuresCount++;
+      monthData.portFailuresWithinSLA += calculateSLA(duration, 4);
+      monthData.clientsAffectedByType.portFailures += clientsAffected;
+    } else if (type?.includes('degrad')) {
+      weekData.degradationCount++;
+      weekData.degradationWithinSLA += calculateSLA(duration, 8);
+      weekData.clientsAffectedByType.degradation += clientsAffected;
+      
+      monthData.degradationCount++;
+      monthData.degradationWithinSLA += calculateSLA(duration, 8);
+      monthData.clientsAffectedByType.degradation += clientsAffected;
+    } else if (type?.includes('los')) {
+      weekData.clientsAffectedByType.multipleLOS += clientsAffected;
+      monthData.clientsAffectedByType.multipleLOS += clientsAffected;
+    } else if (type?.includes('olt')) {
+      weekData.clientsAffectedByType.oltFailures += clientsAffected;
+      monthData.clientsAffectedByType.oltFailures += clientsAffected;
+    }
+  });
+
+  // Calculate averages and SLA percentages
+  Object.values(weekly).forEach(week => {
+    week.avgMTTR = week.incidents ? week.mttr / week.incidents : 0;
+    week.portFailuresSLA = week.portFailuresCount ? 
+      (week.portFailuresWithinSLA / week.portFailuresCount) * 100 : 0;
+    week.degradationSLA = week.degradationCount ? 
+      (week.degradationWithinSLA / week.degradationCount) * 100 : 0;
+    
+    Object.values(week.byAssignedGroup).forEach(group => {
+      group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+    });
+  });
+
+  Object.values(monthly).forEach(month => {
+    month.avgMTTR = month.incidents ? month.mttr / month.incidents : 0;
+    month.portFailuresSLA = month.portFailuresCount ? 
+      (month.portFailuresWithinSLA / month.portFailuresCount) * 100 : 0;
+    month.degradationSLA = month.degradationCount ? 
+      (month.degradationWithinSLA / month.degradationCount) * 100 : 0;
+    
+    Object.values(month.byAssignedGroup).forEach(group => {
+      group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+    });
   });
 
   return {
-    daily: Object.entries(daily).map(([date, stats]) => ({
-      date,
-      incidents: stats.count,
-      avgMTTR: stats.mttr / stats.count,
-      clientsAffected: stats.clients
-    })),
-    weekly: Object.entries(weekly).map(([week, stats]) => ({
-      week,
-      incidents: stats.count,
-      avgMTTR: stats.mttr / stats.count,
-      clientsAffected: stats.clients
-    })),
-    monthly: Object.entries(monthly).map(([month, stats]) => ({
-      month,
-      incidents: stats.count,
-      avgMTTR: stats.mttr / stats.count,
-      clientsAffected: stats.clients
-    }))
+    weekly: Object.values(weekly).sort((a, b) => a.period.localeCompare(b.period)),
+    monthly: Object.values(monthly).sort((a, b) => a.month.localeCompare(b.month))
   };
 }
 

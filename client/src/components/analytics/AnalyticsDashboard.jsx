@@ -14,6 +14,8 @@ import {
   InputLabel,
   Button,
   Snackbar,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   BarChart,
@@ -32,6 +34,8 @@ import {
 } from 'recharts';
 import { PictureAsPdf as PptIcon } from '@mui/icons-material';
 import api from '../../utils/api';
+import AssignedGroupAnalysis from './AssignedGroupAnalysis';
+import EnhancedTrends from './EnhancedTrends';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -43,6 +47,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   const [data, setData] = useState(null);
   const [generatingPpt, setGeneratingPpt] = useState(false);
   const [pptSuccess, setPptSuccess] = useState(false);
+  const [timeframe, setTimeframe] = useState('weekly');
 
   useEffect(() => {
     if (selectedFile) {
@@ -81,13 +86,26 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     setSelectedSheet(event.target.value);
   };
 
+  const handleTimeframeChange = (event, newTimeframe) => {
+    if (newTimeframe !== null) {
+      setTimeframe(newTimeframe);
+    }
+  };
+
   const getCurrentData = () => {
     if (!data) {
       console.log('No data available');
       return null;
     }
     const currentData = selectedSheet === 'overall' ? data.overall : data.sheets[selectedSheet];
-    console.log('Current data for sheet', selectedSheet, ':', currentData);
+    console.log('Current data for sheet', selectedSheet, ':', {
+      hasData: !!currentData,
+      dataKeys: currentData ? Object.keys(currentData) : [],
+      hasAssignedGroups: currentData?.assignedGroups ? true : false,
+      assignedGroupsKeys: currentData?.assignedGroups ? Object.keys(currentData.assignedGroups) : [],
+      timeframe,
+      currentData
+    });
     return currentData;
   };
 
@@ -518,64 +536,84 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   const currentData = getCurrentData();
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <Paper sx={{ flexGrow: 1, mr: 2 }}>
-            <Tabs value={activeTab} onChange={handleTabChange} centered>
-              <Tab label="Summary" value="summary" />
-              <Tab label="Trends" value="trends" />
-              <Tab label="Regional" value="regional" />
-              <Tab label="Impact" value="impact" />
-            </Tabs>
-          </Paper>
-          <FormControl sx={{ minWidth: 200, mr: 2 }}>
-            <InputLabel>Sheet</InputLabel>
-            <Select
-              value={selectedSheet}
-              onChange={handleSheetChange}
-              label="Sheet"
-            >
-              <MenuItem value="overall">Overall</MenuItem>
-              {data?.sheets && Object.keys(data.sheets).map(sheet => (
-                <MenuItem key={sheet} value={sheet}>{sheet}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+    <Box sx={{ width: '100%', p: 3 }}>
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+          <CircularProgress />
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<PptIcon />}
-          onClick={handleGeneratePowerPoint}
-          disabled={generatingPpt || !data}
-        >
-          {generatingPpt ? 'Generating...' : 'Generate PowerPoint'}
-        </Button>
-      </Box>
-
-      {error && (
+      ) : error ? (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-      )}
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
+      ) : data ? (
         <>
+          <Box sx={{ mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item>
+                <FormControl size="small">
+                  <InputLabel>Sheet</InputLabel>
+                  <Select value={selectedSheet} onChange={handleSheetChange} label="Sheet">
+                    <MenuItem value="overall">Overall</MenuItem>
+                    {data.sheets && Object.keys(data.sheets).map(sheet => (
+                      <MenuItem key={sheet} value={sheet}>{sheet}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item>
+                <ToggleButtonGroup
+                  value={timeframe}
+                  exclusive
+                  onChange={handleTimeframeChange}
+                  size="small"
+                >
+                  <ToggleButton value="weekly">Weekly</ToggleButton>
+                  <ToggleButton value="monthly">Monthly</ToggleButton>
+                </ToggleButtonGroup>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  startIcon={<PptIcon />}
+                  onClick={handleGeneratePowerPoint}
+                  disabled={generatingPpt}
+                >
+                  {generatingPpt ? 'Generating...' : 'Generate PowerPoint'}
+                </Button>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
+            <Tab label="Summary" value="summary" />
+            <Tab label="Trends" value="trends" />
+            <Tab label="Assigned Groups" value="assigned" />
+            <Tab label="Regional" value="regional" />
+            <Tab label="Impact" value="impact" />
+          </Tabs>
+
           {activeTab === 'summary' && renderSummary()}
-          {selectedSheet === 'overall' && activeTab === 'trends' && renderTrends()}
+          {activeTab === 'trends' && (
+            <>
+              {renderTrends()}
+              <Box sx={{ mt: 4 }}>
+                <EnhancedTrends data={getCurrentData()} timeframe={timeframe} />
+              </Box>
+            </>
+          )}
+          {activeTab === 'assigned' && (
+            <AssignedGroupAnalysis 
+              data={getCurrentData()}
+              timeframe={timeframe}
+            />
+          )}
           {activeTab === 'regional' && renderRegional()}
           {activeTab === 'impact' && renderImpact()}
-          {selectedSheet !== 'overall' && activeTab === 'trends' && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Trend analysis is only available for overall statistics
-            </Alert>
-          )}
         </>
+      ) : (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Please select a file to view analytics
+        </Alert>
       )}
 
       <Snackbar
