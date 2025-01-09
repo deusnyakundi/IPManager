@@ -554,6 +554,83 @@ const getFileStatus = async (req, res) => {
   }
 };
 
+function calculateSheetStats(data, sheetName) {
+  const sheetData = data.filter(row => row.sheet_name.trim().toLowerCase() === sheetName.toLowerCase());
+  
+  if (sheetData.length === 0) return null;
+
+  const totalIncidents = sheetData.length;
+  const avgMTTR = sheetData.reduce((acc, curr) => acc + (parseFloat(curr.mttr) || 0), 0) / totalIncidents;
+  const totalClientsAffected = sheetData.reduce((acc, curr) => acc + parseInt(curr.clients_affected), 0);
+
+  const faultTypes = {};
+  sheetData.forEach(incident => {
+    faultTypes[incident.fault_type] = (faultTypes[incident.fault_type] || 0) + 1;
+  });
+
+  // Calculate regional distribution for this sheet
+  const regions = {};
+  sheetData.forEach(incident => {
+    if (!regions[incident.region]) {
+      regions[incident.region] = {
+        incidents: 0,
+        mttr: 0,
+        clients: 0
+      };
+    }
+    regions[incident.region].incidents++;
+    regions[incident.region].mttr += parseFloat(incident.mttr) || 0;
+    regions[incident.region].clients += parseInt(incident.clients_affected);
+  });
+
+  const regionalStats = Object.entries(regions).map(([region, stats]) => ({
+    region,
+    incidents: stats.incidents,
+    avgMTTR: stats.mttr / stats.incidents,
+    clientsAffected: stats.clients
+  }));
+
+  // Calculate impact distribution for this sheet
+  const impactRanges = {
+    '1-10': 0,
+    '11-50': 0,
+    '51-100': 0,
+    '101-500': 0,
+    '500+': 0
+  };
+
+  sheetData.forEach(incident => {
+    const clients = parseInt(incident.clients_affected);
+    if (clients <= 10) impactRanges['1-10']++;
+    else if (clients <= 50) impactRanges['11-50']++;
+    else if (clients <= 100) impactRanges['51-100']++;
+    else if (clients <= 500) impactRanges['101-500']++;
+    else impactRanges['500+']++;
+  });
+
+  // Get top 10 high-impact incidents for this sheet
+  const highImpactIncidents = [...sheetData]
+    .sort((a, b) => parseInt(b.clients_affected) - parseInt(a.clients_affected))
+    .slice(0, 10);
+
+  return {
+    summary: {
+      totalIncidents,
+      avgMTTR,
+      totalClientsAffected,
+      faultTypes
+    },
+    regional: regionalStats,
+    impact: {
+      highImpactIncidents,
+      impactDistribution: Object.entries(impactRanges).map(([range, count]) => ({
+        range,
+        count
+      }))
+    }
+  };
+}
+
 const analyzeData = async (req, res) => {
   const { fileId, type } = req.query;
   
@@ -564,6 +641,7 @@ const analyzeData = async (req, res) => {
   let client;
   try {
     client = await pool.connect();
+    console.log('Analyzing data for fileId:', fileId);
     
     // First check if the file exists and is processed
     const fileStatus = await client.query(
@@ -585,36 +663,52 @@ const analyzeData = async (req, res) => {
       [fileId]
     );
 
-    let response;
-    switch (type) {
-      case 'summary':
-        response = calculateSummaryStats(result.rows);
-        break;
-      case 'trends':
-        response = calculateTrends(result.rows);
-        break;
-      case 'regional':
-        response = calculateRegionalStats(result.rows);
-        break;
-      case 'impact':
-        response = calculateImpactStats(result.rows);
-        break;
-      case 'all':
-        response = {
-          summary: calculateSummaryStats(result.rows),
-          trends: calculateTrends(result.rows),
-          regional: calculateRegionalStats(result.rows),
-          impact: calculateImpactStats(result.rows)
-        };
-        break;
-      default:
-        return res.status(400).json({ error: 'Invalid analysis type' });
-    }
+    console.log(`Found ${result.rows.length} rows of data to analyze`);
 
+    // Get unique sheet names
+    const sheets = [...new Set(result.rows.map(row => row.sheet_name.trim()))];
+    console.log('Found sheets:', sheets);
+
+    // Calculate overall stats
+    const overallStats = {
+      summary: calculateSummaryStats(result.rows),
+      trends: calculateTrends(result.rows),
+      regional: calculateRegionalStats(result.rows),
+      impact: calculateImpactStats(result.rows)
+    };
+
+    console.log('Calculated overall stats:', {
+      hasSummary: !!overallStats.summary,
+      hasTrends: !!overallStats.trends,
+      hasRegional: !!overallStats.regional,
+      hasImpact: !!overallStats.impact
+    });
+
+    // Calculate per-sheet stats
+    const sheetStats = {};
+    sheets.forEach(sheet => {
+      const sheetData = calculateSheetStats(result.rows, sheet);
+      if (sheetData) {
+        sheetStats[sheet] = sheetData;
+        console.log(`Calculated stats for sheet ${sheet}:`, {
+          hasSummary: !!sheetData.summary,
+          hasRegional: !!sheetData.regional,
+          hasImpact: !!sheetData.impact
+        });
+      }
+    });
+
+    // Combine overall and sheet-specific stats
+    const response = {
+      overall: overallStats,
+      sheets: sheetStats
+    };
+
+    console.log('Sending response with sheets:', Object.keys(sheetStats));
     res.json(response);
   } catch (error) {
     console.error('Error analyzing data:', error);
-    res.status(500).json({ error: 'Error analyzing data' });
+    res.status(500).json({ error: 'Error analyzing data: ' + error.message });
   } finally {
     if (client) {
       client.release();

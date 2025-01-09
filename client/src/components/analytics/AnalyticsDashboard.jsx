@@ -37,6 +37,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const AnalyticsDashboard = ({ selectedFile }) => {
   const [activeTab, setActiveTab] = useState('summary');
+  const [selectedSheet, setSelectedSheet] = useState('overall');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -53,17 +54,20 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     setLoading(true);
     setError('');
     try {
+      console.log('Fetching analytics for file:', selectedFile);
       const response = await api.get('/analytics/analyze', {
         params: {
           fileId: selectedFile.id,
           type: 'all'
         },
       });
-      console.log('Analytics response:', response.data);
+      console.log('Raw analytics response:', response);
+      console.log('Analytics data:', response.data);
+      console.log('Sheets available:', response.data?.sheets ? Object.keys(response.data.sheets) : 'No sheets');
       setData(response.data);
     } catch (error) {
       console.error('Analytics error:', error);
-      setError('Failed to fetch analytics data');
+      setError('Failed to fetch analytics data: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
@@ -71,6 +75,20 @@ const AnalyticsDashboard = ({ selectedFile }) => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+  };
+
+  const handleSheetChange = (event) => {
+    setSelectedSheet(event.target.value);
+  };
+
+  const getCurrentData = () => {
+    if (!data) {
+      console.log('No data available');
+      return null;
+    }
+    const currentData = selectedSheet === 'overall' ? data.overall : data.sheets[selectedSheet];
+    console.log('Current data for sheet', selectedSheet, ':', currentData);
+    return currentData;
   };
 
   const handleGeneratePowerPoint = async () => {
@@ -108,8 +126,21 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   };
 
   const renderSummary = () => {
-    if (!data || !data.summary) return null;
-    const summary = data.summary;
+    const currentData = getCurrentData();
+    if (!currentData) {
+      console.log('No current data available for summary');
+      return null;
+    }
+    console.log('Rendering summary with data:', currentData.summary);
+    const summary = currentData.summary;
+    if (!summary) {
+      console.log('No summary data available');
+      return (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          No summary data available for this sheet
+        </Alert>
+      );
+    }
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -143,129 +174,79 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   };
 
   const renderTrends = () => {
-    if (!data || !data.trends) return null;
+    const currentData = getCurrentData();
+    if (!currentData || !currentData.trends) {
+      console.log('No trends data available:', currentData);
+      return (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          No trends data available for this selection
+        </Alert>
+      );
+    }
 
-    const { daily, weekly, monthly } = data.trends;
+    const { daily, weekly, monthly } = currentData.trends;
+    console.log('Trends data:', { daily, weekly, monthly });
     
     // Sort data by date/week/month
-    const sortedDaily = [...daily].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const sortedWeekly = [...weekly].sort((a, b) => a.week - b.week);
-    const sortedMonthly = [...monthly].sort((a, b) => a.month.localeCompare(b.month));
+    const sortedDaily = daily ? [...daily].sort((a, b) => new Date(a.date) - new Date(b.date)) : [];
+    const sortedWeekly = weekly ? [...weekly].sort((a, b) => a.week - b.week) : [];
+    const sortedMonthly = monthly ? [...monthly].sort((a, b) => a.month.localeCompare(b.month)) : [];
 
     return (
       <Grid container spacing={3}>
         {/* Monthly Trends */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Monthly Trends
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={sortedMonthly}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="incidents"
-                  stroke="#8884d8"
-                  name="Incidents"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avgMTTR"
-                  stroke="#82ca9d"
-                  name="Avg MTTR"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        
-        {/* Weekly Trends */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Weekly Trends
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={sortedWeekly}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" label={{ value: 'Week Number', position: 'bottom' }} />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="incidents"
-                  stroke="#8884d8"
-                  name="Incidents"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avgMTTR"
-                  stroke="#82ca9d"
-                  name="Avg MTTR"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Daily Trends */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Daily Trends
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={sortedDaily}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="incidents"
-                  stroke="#8884d8"
-                  name="Incidents"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avgMTTR"
-                  stroke="#82ca9d"
-                  name="Avg MTTR"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
+        {sortedMonthly.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Monthly Trends
+              </Typography>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={sortedMonthly}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="incidents"
+                    stroke="#8884d8"
+                    name="Incidents"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="avgMTTR"
+                    stroke="#82ca9d"
+                    name="Avg MTTR"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
     );
   };
 
   const renderRegional = () => {
-    if (!data || !data.regional) return null;
+    const currentData = getCurrentData();
+    if (!currentData || !currentData.regional) {
+      console.log('No regional data available:', currentData);
+      return (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          No regional data available for this selection
+        </Alert>
+      );
+    }
+
+    console.log('Regional data:', currentData.regional);
 
     // Combine similar regions and aggregate their data
-    const combinedRegions = data.regional.reduce((acc, curr) => {
+    const combinedRegions = currentData.regional.reduce((acc, curr) => {
       const region = curr.region.toLowerCase().replace(/\./g, '').trim();
       if (!acc[region]) {
         acc[region] = {
@@ -349,9 +330,26 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   };
 
   const renderImpact = () => {
-    if (!data || !data.impact) return null;
+    const currentData = getCurrentData();
+    if (!currentData || !currentData.impact) {
+      console.log('No impact data available:', currentData);
+      return (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          No impact data available for this selection
+        </Alert>
+      );
+    }
 
-    const { highImpactIncidents, impactDistribution } = data.impact;
+    console.log('Impact data:', currentData.impact);
+    const { highImpactIncidents, impactDistribution } = currentData.impact;
+
+    if (!highImpactIncidents || !impactDistribution) {
+      return (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Impact data is incomplete
+        </Alert>
+      );
+    }
 
     return (
       <Grid container spacing={3}>
@@ -391,15 +389,15 @@ const AnalyticsDashboard = ({ selectedFile }) => {
             </Typography>
             <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
               {highImpactIncidents.map((incident, index) => (
-                <Box key={incident.ticket_number} sx={{ mb: 1, p: 1, bgcolor: 'background.paper' }}>
+                <Box key={index} sx={{ mb: 1, p: 1, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2">
-                    #{index + 1} - Ticket: {incident.ticket_number}
+                    #{index + 1} - Ticket: {incident.ticket_number || 'N/A'}
                   </Typography>
                   <Typography variant="body2">
-                    Clients Affected: {incident.clients_affected}
+                    Clients Affected: {incident.clients_affected || 0}
                   </Typography>
                   <Typography variant="body2">
-                    Region: {incident.region}
+                    Region: {incident.region || 'N/A'}
                   </Typography>
                 </Box>
               ))}
@@ -418,17 +416,34 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     );
   }
 
+  const currentData = getCurrentData();
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Paper sx={{ flexGrow: 1, mr: 2 }}>
-          <Tabs value={activeTab} onChange={handleTabChange} centered>
-            <Tab label="Summary" value="summary" />
-            <Tab label="Trends" value="trends" />
-            <Tab label="Regional" value="regional" />
-            <Tab label="Impact" value="impact" />
-          </Tabs>
-        </Paper>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+          <Paper sx={{ flexGrow: 1, mr: 2 }}>
+            <Tabs value={activeTab} onChange={handleTabChange} centered>
+              <Tab label="Summary" value="summary" />
+              <Tab label="Trends" value="trends" />
+              <Tab label="Regional" value="regional" />
+              <Tab label="Impact" value="impact" />
+            </Tabs>
+          </Paper>
+          <FormControl sx={{ minWidth: 200, mr: 2 }}>
+            <InputLabel>Sheet</InputLabel>
+            <Select
+              value={selectedSheet}
+              onChange={handleSheetChange}
+              label="Sheet"
+            >
+              <MenuItem value="overall">Overall</MenuItem>
+              {data?.sheets && Object.keys(data.sheets).map(sheet => (
+                <MenuItem key={sheet} value={sheet}>{sheet}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
         <Button
           variant="contained"
           color="primary"
@@ -453,9 +468,14 @@ const AnalyticsDashboard = ({ selectedFile }) => {
       ) : (
         <>
           {activeTab === 'summary' && renderSummary()}
-          {activeTab === 'trends' && renderTrends()}
+          {selectedSheet === 'overall' && activeTab === 'trends' && renderTrends()}
           {activeTab === 'regional' && renderRegional()}
           {activeTab === 'impact' && renderImpact()}
+          {selectedSheet !== 'overall' && activeTab === 'trends' && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Trend analysis is only available for overall statistics
+            </Alert>
+          )}
         </>
       )}
 
