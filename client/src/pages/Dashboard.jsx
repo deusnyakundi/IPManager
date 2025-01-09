@@ -25,6 +25,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useTheme,
+  alpha,
 } from '@mui/material';
 import { 
   CellTower as SiteIcon,
@@ -37,15 +39,29 @@ import {
   LocationOn as LocationIcon,
   Business as MspIcon,
   Memory as VendorIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from 'recharts';
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer, 
+  LabelList,
+  AreaChart,
+  Area,
+} from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
-  console.log('Dashboard component rendering');
-  
+  const theme = useTheme();
   const { user } = useAuth();
   const [stats, setStats] = useState({
     totalAssignments: 0,
@@ -53,7 +69,6 @@ const Dashboard = () => {
     oltByRegion: [],
     oltByMSP: [],
     oltByType: {
-  
       huawei: 0,
       nokia: 0
     },
@@ -68,6 +83,30 @@ const Dashboard = () => {
     type: ''
   });
   const navigate = useNavigate();
+
+  // Custom color palette
+  const CHART_COLORS = {
+    primary: theme.palette.primary.main,
+    secondary: theme.palette.secondary.main,
+    success: theme.palette.success.main,
+    warning: theme.palette.warning.main,
+    error: theme.palette.error.main,
+    info: theme.palette.info.main,
+    gradients: [
+      `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.light} 90%)`,
+      `linear-gradient(45deg, ${theme.palette.secondary.main} 30%, ${theme.palette.secondary.light} 90%)`,
+      `linear-gradient(45deg, ${theme.palette.success.main} 30%, ${theme.palette.success.light} 90%)`,
+    ]
+  };
+
+  const COLORS = [
+    theme.palette.primary.main,
+    theme.palette.secondary.main,
+    theme.palette.success.main,
+    theme.palette.warning.main,
+    theme.palette.error.main,
+    theme.palette.info.main,
+  ];
 
   const fetchDashboardData = async () => {
     console.log('Fetching dashboard data...');
@@ -166,8 +205,6 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-
   const handleChartClick = (data, type) => {
     let filteredData = [];
     let title = '';
@@ -203,27 +240,49 @@ const Dashboard = () => {
     });
   };
 
-  const StatCard = ({ icon: Icon, title, value, color, onClick }) => (
+  const StatCard = ({ icon: Icon, title, value, color, onClick, trend }) => (
     <Card 
       sx={{ 
         height: '100%',
         cursor: onClick ? 'pointer' : 'default',
+        position: 'relative',
+        overflow: 'hidden',
         '&:hover': onClick ? {
-          backgroundColor: 'action.hover'
-        } : {}
+          transform: 'translateY(-4px)',
+          boxShadow: theme.shadows[8],
+          transition: 'all 0.3s ease-in-out'
+        } : {},
+        background: color,
+        color: theme.palette.getContrastText(color),
       }}
       onClick={onClick}
     >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: -15,
+          right: -15,
+          opacity: 0.2,
+          transform: 'rotate(30deg)',
+        }}
+      >
+        <Icon sx={{ fontSize: 100 }} />
+      </Box>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Icon sx={{ color: color, mr: 1 }} />
-          <Typography color="textSecondary" variant="h6">
-            {title}
-          </Typography>
-        </Box>
-        <Typography variant="h4" component="div">
-          {value}
+        <Typography color="inherit" variant="subtitle2" sx={{ mb: 1, opacity: 0.72 }}>
+          {title}
         </Typography>
+        <Typography variant="h3" color="inherit">
+          {value.toLocaleString()}
+        </Typography>
+        {trend && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
+            <TrendingUpIcon sx={{ mr: 0.5, fontSize: '1rem' }} />
+            <Typography variant="caption">
+              {trend}% increase from last month
+            </Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   );
@@ -234,27 +293,46 @@ const Dashboard = () => {
       onClose={() => setDetailDialog(prev => ({ ...prev, open: false }))}
       maxWidth="md"
       fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
+        }
+      }}
     >
-      <DialogTitle>{detailDialog.title}</DialogTitle>
-      <DialogContent>
-        <TableContainer>
+      <DialogTitle sx={{ 
+        borderBottom: 1, 
+        borderColor: 'divider',
+        background: CHART_COLORS.gradients[0],
+        color: 'white'
+      }}>
+        {detailDialog.title}
+      </DialogTitle>
+      <DialogContent sx={{ mt: 2 }}>
+        <TableContainer component={Paper} sx={{ borderRadius: 1, boxShadow: 2 }}>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.1) }}>
                 <TableCell>Site Name</TableCell>
                 <TableCell>Region</TableCell>
                 <TableCell>MSP</TableCell>
-                <TableCell>OLT Count</TableCell>
+                <TableCell align="center">OLT Count</TableCell>
                 <TableCell>Vendor Types</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {detailDialog.data.map((row, index) => (
-                <TableRow key={index}>
+                <TableRow 
+                  key={index}
+                  sx={{ 
+                    '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) },
+                    '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.05) }
+                  }}
+                >
                   <TableCell>{row.base_name}</TableCell>
                   <TableCell>{row.region_name}</TableCell>
                   <TableCell>{row.msp_name}</TableCell>
-                  <TableCell>{row.olt_count}</TableCell>
+                  <TableCell align="center">{row.olt_count}</TableCell>
                   <TableCell>{row.vendor_types}</TableCell>
                 </TableRow>
               ))}
@@ -262,8 +340,12 @@ const Dashboard = () => {
           </Table>
         </TableContainer>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setDetailDialog(prev => ({ ...prev, open: false }))}>
+      <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          onClick={() => setDetailDialog(prev => ({ ...prev, open: false }))}
+          variant="contained"
+          sx={{ borderRadius: 2 }}
+        >
           Close
         </Button>
       </DialogActions>
@@ -273,232 +355,305 @@ const Dashboard = () => {
   return (
     <Container 
       maxWidth="xl"
-      disableGutters
       sx={{ 
         height: '100vh',
-        minWidth: 0,
-        overflow: 'auto',
-        backgroundColor: 'background.paper', 
+        py: 3,
+        backgroundColor: alpha(theme.palette.background.default, 0.98),
       }}
     >
-      <Box sx={{ 
-        mb: 0.5,
-        minWidth: 'min-content',
-      }}>
-        {/* Header Paper */}
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 1, 
-            backgroundColor: 'background.paper',
-            borderBottom: 1,
-            borderColor: 'divider',
-            borderRadius: 0,
-          }}
-        >
-          <Grid 
-            container 
-            justifyContent="space-between" 
-            alignItems="center" 
-            spacing={0}
-            sx={{ 
-              minHeight: '32px',
-              py: 0,
-              m: 0,
-              '& .MuiGrid-item': { 
-                p: 0,
-                m: 0
-              }
-            }}
-          >
-            <Grid item>
-              <Typography 
-                variant="h4" 
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container alignItems="center" justifyContent="space-between">
+          <Grid item>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 'bold',
+                background: CHART_COLORS.gradients[0],
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              IP Assignment Dashboard
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Pseudowire Generator">
+                <IconButton 
+                  onClick={() => navigate('/pseudowire-generator')}
+                  sx={{ 
+                    background: CHART_COLORS.gradients[1],
+                    color: 'white',
+                    '&:hover': {
+                      background: CHART_COLORS.gradients[2],
+                    }
+                  }}
+                >
+                  <CompareArrowsIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Config Generator">
+                <IconButton 
+                  onClick={() => navigate('/config-generator')}
+                  sx={{ 
+                    background: CHART_COLORS.gradients[0],
+                    color: 'white',
+                    '&:hover': {
+                      background: CHART_COLORS.gradients[1],
+                    }
+                  }}
+                >
+                  <SettingsIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Refresh Data">
+                <IconButton 
+                  onClick={fetchDashboardData}
+                  sx={{ 
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                    }
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {loading ? (
+        <LinearProgress sx={{ mb: 3 }} />
+      ) : (
+        <Grid container spacing={3}>
+          {/* Stats Cards */}
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              icon={IpIcon} 
+              title="Total OLTs Installed"
+              value={stats.totalAssignments}
+              color={CHART_COLORS.primary}
+              onClick={() => handleChartClick({ name: 'All' }, 'all')}
+              trend={12}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              icon={OltIcon} 
+              title="OLT Sites" 
+              value={stats.oltSites}
+              color={CHART_COLORS.secondary}
+              trend={8}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              icon={VendorIcon} 
+              title="Huawei OLTs" 
+              value={stats.oltByType.huawei}
+              color={CHART_COLORS.success}
+              trend={15}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              icon={VendorIcon} 
+              title="Nokia OLTs" 
+              value={stats.oltByType.nokia}
+              color={CHART_COLORS.warning}
+              trend={5}
+            />
+          </Grid>
+
+          {/* Charts */}
+          <Grid item xs={12} md={6}>
+            <Paper 
+              sx={{ 
+                p: 3, 
+                height: 400,
+                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ color: theme.palette.text.primary }}>
+                OLT Sites by Region
+              </Typography>
+              <ResponsiveContainer width="100%" height="90%">
+                <PieChart>
+                  <Pie
+                    data={stats.oltByRegion}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={120}
+                    label={({ name, value, percent }) => 
+                      `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                    }
+                    onClick={(data) => handleChartClick(data, 'region')}
+                  >
+                    {stats.oltByRegion.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[index % COLORS.length]}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper 
+              sx={{ 
+                p: 3, 
+                height: 400,
+                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.dark, 0.05)} 100%)`,
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ color: theme.palette.text.primary }}>
+                Sites per Region
+              </Typography>
+              <ResponsiveContainer width="100%" height="90%">
+                <AreaChart data={stats.sitesPerRegion}>
+                  <defs>
+                    <linearGradient id="colorSites" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.primary, 0.1)} />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={70} 
+                    tick={{ fill: theme.palette.text.primary }}
+                  />
+                  <YAxis tick={{ fill: theme.palette.text.primary }} />
+                  <RechartsTooltip 
+                    contentStyle={{ 
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={CHART_COLORS.primary}
+                    fillOpacity={1}
+                    fill="url(#colorSites)"
+                    onClick={(data) => handleChartClick(data, 'region')}
+                  >
+                    <LabelList dataKey="value" position="top" />
+                  </Area>
+                </AreaChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper 
+              sx={{ 
+                p: 3, 
+                height: 400,
+                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.05)} 0%, ${alpha(theme.palette.success.dark, 0.05)} 100%)`,
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ color: theme.palette.text.primary }}>
+                OLT Sites by MSP
+              </Typography>
+              <ResponsiveContainer width="100%" height="90%">
+                <BarChart 
+                  data={stats.oltByMSP}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.primary, 0.1)} />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={70}
+                    tick={{ fill: theme.palette.text.primary }}
+                  />
+                  <YAxis tick={{ fill: theme.palette.text.primary }} />
+                  <RechartsTooltip 
+                    contentStyle={{ 
+                      backgroundColor: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill={CHART_COLORS.success}
+                    onClick={(data) => handleChartClick(data, 'msp')}
+                    radius={[4, 4, 0, 0]}
+                  >
+                    <LabelList dataKey="value" position="top" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+
+          {stats.oltByType && Object.values(stats.oltByType).some(v => v > 0) && (
+            <Grid item xs={12} md={6}>
+              <Paper 
                 sx={{ 
-                  fontSize: '1.25rem',
-                  lineHeight: 1,
-                  m: 0,
-                  color: 'text.primary',
+                  p: 3, 
+                  height: 400,
+                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.05)} 0%, ${alpha(theme.palette.warning.dark, 0.05)} 100%)`,
+                  borderRadius: 2,
                 }}
               >
-                IP Assignment Dashboard
-              </Typography>
-            </Grid>
-            <Grid item>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Tooltip title="Pseudowire Generator">
-                  <IconButton 
-                    onClick={() => navigate('/pseudowire-generator')}
-                    sx={{ 
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      }
-                    }}
+                <Typography variant="h6" gutterBottom sx={{ color: theme.palette.text.primary }}>
+                  OLT Sites by Vendor
+                </Typography>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart 
+                    data={[
+                      { name: 'Huawei', value: stats.oltByType.huawei },
+                      { name: 'Nokia', value: stats.oltByType.nokia }
+                    ]}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
-                    <CompareArrowsIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Config Generator">
-                  <IconButton 
-                    onClick={() => navigate('/config-generator')}
-                    sx={{ 
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      }
-                    }}
-                  >
-                    <SettingsIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Refresh Data">
-                  <IconButton onClick={fetchDashboardData}>
-                    <RefreshIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+                    <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.primary, 0.1)} />
+                    <XAxis dataKey="name" tick={{ fill: theme.palette.text.primary }} />
+                    <YAxis tick={{ fill: theme.palette.text.primary }} />
+                    <RechartsTooltip 
+                      contentStyle={{ 
+                        backgroundColor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.divider}`,
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      onClick={(data) => handleChartClick(data, 'vendor')}
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {[
+                        { name: 'Huawei', fill: CHART_COLORS.warning },
+                        { name: 'Nokia', fill: CHART_COLORS.error }
+                      ].map((entry, index) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                      <LabelList dataKey="value" position="top" />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Paper>
             </Grid>
-          </Grid>
-        </Paper>
-
-        {/* Main Content */}
-        {loading ? (
-          <LinearProgress />
-        ) : (
-          <Paper sx={{ 
-            mt: 1,
-            borderRadius: 0,
-            p: 2
-          }}>
-            <Grid container spacing={3}>
-              {/* Stats Cards */}
-              <Grid item xs={12} sm={6}>
-                <StatCard 
-                  icon={IpIcon} 
-                  title="Total OLTs Installed"
-                  value={stats.totalAssignments}
-                  color="#1976d2"
-                  onClick={() => handleChartClick({ name: 'All' }, 'all')}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StatCard 
-                  icon={OltIcon} 
-                  title="OLT Sites" 
-                  value={stats.oltSites}
-                  color="#2e7d32"
-                />
-              </Grid>
-
-              {/* OLT Distribution Charts */}
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 2, height: 400 }}>
-                  <Typography variant="h6" gutterBottom>OLT Sites by Region</Typography>
-                  <ResponsiveContainer width="100%" height="90%">
-                    <PieChart>
-                      <Pie
-                        data={stats.oltByRegion}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={120}
-                        label
-                        onClick={(data) => handleChartClick(data, 'region')}
-                      >
-                        {stats.oltByRegion.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={COLORS[index % COLORS.length]}
-                            style={{ cursor: 'pointer' }}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 2, height: 400 }}>
-                  <Typography variant="h6" gutterBottom>Sites per Region</Typography>
-                  <ResponsiveContainer width="100%" height="90%">
-                    <BarChart data={stats.sitesPerRegion}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
-                      <YAxis />
-                      <RechartsTooltip />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#82ca9d"
-                        onClick={(data) => handleChartClick(data, 'region')}
-                      >
-                        <LabelList dataKey="value" position="top" />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Paper sx={{ p: 2, height: 400 }}>
-                  <Typography variant="h6" gutterBottom>OLT Sites by MSP</Typography>
-                  <ResponsiveContainer width="100%" height="90%">
-                    <BarChart data={stats.oltByMSP}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
-                      <YAxis />
-                      <RechartsTooltip />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#8884d8"
-                        onClick={(data) => handleChartClick(data, 'msp')}
-                      >
-                        <LabelList dataKey="value" position="top" />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Paper>
-              </Grid>
-
-              {/* Vendor Chart */}
-              {stats.oltByType && Object.values(stats.oltByType).some(v => v > 0) && (
-                <Grid item xs={12} md={6}>
-                  <Paper sx={{ p: 2, height: 400 }}>
-                    <Typography variant="h6" gutterBottom>OLT Sites by Vendor</Typography>
-                    <ResponsiveContainer width="100%" height="90%">
-                      <BarChart 
-                        data={[
-
-                          { name: 'Huawei', value: stats.oltByType.huawei },
-                          { name: 'Nokia', value: stats.oltByType.nokia }
-                        ]}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Bar 
-                          dataKey="value" 
-                          fill="#82ca9d"
-                          onClick={(data) => handleChartClick(data, 'vendor')}
-                        >
-                          <LabelList dataKey="value" position="top" />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Paper>
-                </Grid>
-              )}
-            </Grid>
-          </Paper>
-        )}
-      </Box>
+          )}
+        </Grid>
+      )}
       <DetailDialog />
     </Container>
   );
