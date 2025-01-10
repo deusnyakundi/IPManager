@@ -1548,130 +1548,273 @@ const generatePowerPoint = async (req, res) => {
 
   let client;
   try {
+    console.log('Starting PowerPoint generation for fileId:', fileId);
     client = await pool.connect();
     
     // Get all the analytics data
+    console.log('Fetching analytics data...');
     const result = await client.query(
       'SELECT * FROM analytics_data WHERE file_id = $1',
       [fileId]
     );
+    console.log(`Found ${result.rows.length} rows of data`);
 
     // Get file info
+    console.log('Fetching file info...');
     const fileInfo = await client.query(
       'SELECT original_name FROM analytics_files WHERE id = $1',
       [fileId]
     );
+    console.log('File info:', fileInfo.rows[0]);
 
     if (fileInfo.rows.length === 0) {
       return res.status(404).json({ error: 'File not found' });
     }
 
     // Calculate all analytics
+    console.log('Calculating analytics...');
     const data = {
       summary: calculateSummaryStats(result.rows),
       trends: calculateTrends(result.rows),
       regional: calculateRegionalStats(result.rows),
       impact: calculateImpactStats(result.rows)
     };
+    console.log('Analytics calculated successfully');
 
-    // Create PowerPoint presentation
+    // Get the week number from the data
+    const dates = result.rows.map(row => new Date(row.reported_date));
+    const minDate = new Date(Math.min(...dates));
+    const weekNumber = getWeekNumber(minDate);
+    const year = minDate.getFullYear();
+
+    // Create PowerPoint presentation with theme colors
+    console.log('Creating PowerPoint presentation...');
     const pptx = new PptxGenJS();
+    const theme = {
+      primary: '2196F3',   // Blue
+      secondary: '4CAF50', // Green
+      accent1: 'FFC107',   // Amber
+      accent2: 'FF5722',   // Deep Orange
+      accent3: '9C27B0',   // Purple
+      accent4: '00BCD4'    // Cyan
+    };
 
     // Add title slide
+    console.log('Adding title slide...');
     const titleSlide = pptx.addSlide();
     titleSlide.addText("Network Analysis Report", {
       x: 1,
-      y: 1,
+      y: 2,
       w: 8,
       h: 1,
-      fontSize: 24,
+      fontSize: 36,
       bold: true,
+      color: theme.primary,
       align: "center"
     });
-    titleSlide.addText(`Based on: ${fileInfo.rows[0].original_name}`, {
+    titleSlide.addText(`Week ${weekNumber}, ${year}`, {
       x: 1,
-      y: 2,
+      y: 3.5,
+      w: 8,
+      h: 0.5,
+      fontSize: 18,
+      color: theme.secondary,
+      align: "center"
+    });
+    titleSlide.addText(new Date().toLocaleDateString(), {
+      x: 1,
+      y: 4.5,
       w: 8,
       h: 0.5,
       fontSize: 14,
+      color: '666666',
       align: "center"
     });
 
     // Add summary slide
+    console.log('Adding summary slide...');
     const summarySlide = pptx.addSlide();
     summarySlide.addText("Summary Statistics", {
       x: 0,
-      y: 0,
+      y: 0.2,
       w: 10,
       h: 0.5,
-      fontSize: 18,
-      bold: true
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
     });
 
     // Add summary stats
     const summaryData = [
+      ["Metric", "Value"],
       ["Total Incidents", data.summary.totalIncidents],
-      ["Average MTTR (Hours)", data.summary.avgMTTR.toFixed(2)],
-      ["Total Clients Affected", data.summary.totalClientsAffected]
+      ["Average MTTR", data.summary.avgMTTRFormatted],
+      ["Total Clients Affected", data.summary.totalClientsAffected.toLocaleString()]
     ];
 
     summarySlide.addTable(summaryData, {
       x: 0.5,
       y: 1,
-      w: 9,
+      w: 4,
       h: 2,
-      fontSize: 14
+      fontSize: 14,
+      border: { type: 'solid', pt: 1, color: theme.primary },
+      colW: [2, 2],
+      rowH: 0.5,
+      fill: { color: 'F5F5F5' }
     });
 
     // Add fault types chart
-    const faultTypeData = Object.entries(data.summary.faultTypes).map(([type, count]) => ({
-      name: type,
-      value: count
-    }));
+    console.log('Adding fault types chart...');
+    const chartData = [{
+      name: 'Fault Types',
+      labels: Object.keys(data.summary.faultTypes || {}),
+      values: Object.values(data.summary.faultTypes || {})
+    }];
 
-    summarySlide.addChart(pptx.ChartType.pie, faultTypeData, {
-      x: 1,
-      y: 3.5,
-      w: 8,
-      h: 3,
-      title: "Fault Type Distribution"
+    summarySlide.addChart(pptx.ChartType.pie, chartData, {
+      title: "Fault Type Distribution",
+      showValue: true,
+      showPercent: true,
+      chartColors: Object.values(theme),
+      x: 5,
+      y: 1,
+      w: 4.5,
+      h: 3
     });
 
-    // Add regional analysis slide
-    const regionalSlide = pptx.addSlide();
-    regionalSlide.addText("Regional Analysis", {
+    // Add trends slide
+    console.log('Adding trends slide...');
+    const trendsSlide = pptx.addSlide();
+    trendsSlide.addText("Incident Trends", {
       x: 0,
-      y: 0,
+      y: 0.2,
       w: 10,
       h: 0.5,
-      fontSize: 18,
-      bold: true
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
     });
 
-    // Add regional chart
-    regionalSlide.addChart(pptx.ChartType.bar, data.regional, {
+    // Monthly trends chart
+    const monthlyTrends = [{
+      name: 'Incidents',
+      labels: data.trends.monthly.map(m => m.month),
+      values: data.trends.monthly.map(m => m.incidents)
+    }];
+
+    trendsSlide.addChart(pptx.ChartType.line, monthlyTrends, {
+      title: "Monthly Trends",
+      showValue: false,
+      lineSize: 2,
+      chartColors: [theme.primary],
+      valAxisTitle: "Count",
+      catAxisTitle: "Month",
       x: 0.5,
       y: 1,
       w: 9,
-      h: 4,
+      h: 3
+    });
+
+    // Add regional analysis slide
+    console.log('Adding regional analysis slide...');
+    const regionalSlide = pptx.addSlide();
+    regionalSlide.addText("Regional Analysis", {
+      x: 0,
+      y: 0.2,
+      w: 10,
+      h: 0.5,
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
+    });
+
+    // Regional analysis charts
+    const regionalIncidents = [{
+      name: 'Incidents',
+      labels: data.regional.map(r => r.region),
+      values: data.regional.map(r => r.incidents)
+    }];
+
+    regionalSlide.addChart(pptx.ChartType.bar, regionalIncidents, {
       title: "Incidents by Region",
       showValue: true,
-      dataLabelPosition: "outEnd"
+      chartColors: [theme.primary],
+      valAxisTitle: "Number of Incidents",
+      catAxisTitle: "Region",
+      x: 0.5,
+      y: 1,
+      w: 4.5,
+      h: 3
+    });
+
+    const regionalMTTR = [{
+      name: 'MTTR',
+      labels: data.regional.map(r => r.region),
+      values: data.regional.map(r => r.avgMTTR)
+    }];
+
+    regionalSlide.addChart(pptx.ChartType.bar, regionalMTTR, {
+      title: "Average MTTR by Region",
+      showValue: true,
+      chartColors: [theme.secondary],
+      valAxisTitle: "Hours",
+      catAxisTitle: "Region",
+      x: 5.5,
+      y: 1,
+      w: 4.5,
+      h: 3
+    });
+
+    // Add impact analysis slide
+    console.log('Adding impact analysis slide...');
+    const impactSlide = pptx.addSlide();
+    impactSlide.addText("Impact Analysis", {
+      x: 0,
+      y: 0.2,
+      w: 10,
+      h: 0.5,
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
+    });
+
+    // Impact distribution chart
+    const impactData = [{
+      name: 'Impact',
+      labels: data.impact.impactDistribution.map(d => d.range),
+      values: data.impact.impactDistribution.map(d => d.count)
+    }];
+
+    impactSlide.addChart(pptx.ChartType.doughnut, impactData, {
+      title: "Impact Distribution",
+      showValue: true,
+      showPercent: true,
+      chartColors: Object.values(theme),
+      dataLabelColor: "FFFFFF",
+      x: 0.5,
+      y: 1,
+      w: 4.5,
+      h: 3
     });
 
     // Save the presentation
+    console.log('Generating PowerPoint buffer...');
     const buffer = await pptx.write('nodebuffer');
+    console.log('PowerPoint buffer generated successfully');
     
     // Set headers for file download
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.setHeader('Content-Disposition', 'attachment; filename=network_analysis.pptx');
     
     // Send the file
+    console.log('Sending PowerPoint file...');
     res.send(buffer);
+    console.log('PowerPoint file sent successfully');
 
   } catch (error) {
     console.error('Error generating PowerPoint:', error);
-    res.status(500).json({ error: 'Error generating PowerPoint presentation' });
+    res.status(500).json({ error: 'Error generating PowerPoint presentation: ' + error.message });
   } finally {
     if (client) {
       client.release();
@@ -1703,5 +1846,6 @@ module.exports = {
   uploadFile,
   getAnalyticsData,
   getUploadHistory,
-  getFileStatus
+  getFileStatus,
+  generatePowerPoint
 }; 

@@ -4,7 +4,8 @@ const {
   uploadFile, 
   getAnalyticsData, 
   getUploadHistory, 
-  getFileStatus 
+  getFileStatus,
+  generatePowerPoint
 } = require('../controllers/analytics.controller');
 const { authenticateToken } = require('../middleware/auth.middleware');
 const { validateToken } = require('../middleware/csrf.middleware');
@@ -19,5 +20,6 @@ router.post('/upload', validateToken, uploadFile);
 router.get('/uploads', getUploadHistory);
 router.get('/upload/:id/status', getFileStatus);
 router.get('/analyze', getAnalyticsData);
+router.get('/powerpoint', generatePowerPoint);
 
 module.exports = router; 
