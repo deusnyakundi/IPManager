@@ -60,16 +60,14 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     setLoading(true);
     setError('');
     try {
-      console.log('Fetching analytics for file:', selectedFile);
+  
       const response = await api.get('/analytics/analyze', {
         params: {
           fileId: selectedFile.id,
           type: 'all'
         },
       });
-      console.log('Raw analytics response:', response);
-      console.log('Analytics data:', response.data);
-      console.log('Sheets available:', response.data?.sheets ? Object.keys(response.data.sheets) : 'No sheets');
+     
       setData(response.data);
     } catch (error) {
       console.error('Analytics error:', error);
@@ -99,14 +97,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
       return null;
     }
     const currentData = selectedSheet === 'overall' ? data.overall : data.sheets[selectedSheet];
-    console.log('Current data for sheet', selectedSheet, ':', {
-      hasData: !!currentData,
-      dataKeys: currentData ? Object.keys(currentData) : [],
-      hasAssignedGroups: currentData?.assignedGroups ? true : false,
-      assignedGroupsKeys: currentData?.assignedGroups ? Object.keys(currentData.assignedGroups) : [],
-      timeframe,
-      currentData
-    });
+ 
     return currentData;
   };
 
@@ -230,7 +221,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
                 Total Clients Affected
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
-                {summary.totalClientsAffected || 0}
+                {summary.totalClientsAffected.toLocaleString() || 0}
               </Typography>
             </Paper>
           </Grid>

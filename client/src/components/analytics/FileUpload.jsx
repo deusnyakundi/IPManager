@@ -283,7 +283,7 @@ const FileUpload = ({ onFileSelect }) => {
                     />
                   </TableCell>
                   <TableCell>{file.filename}</TableCell>
-                  <TableCell>{file.uploaded_by_user}</TableCell>
+                  <TableCell>{file.uploaded_by_username}</TableCell>
                   <TableCell>{formatDate(file.upload_date)}</TableCell>
                   <TableCell>
                     {processingFiles.has(file.id) ? (

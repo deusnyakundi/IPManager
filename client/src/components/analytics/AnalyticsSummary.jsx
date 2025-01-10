@@ -46,14 +46,7 @@ const StatCard = ({ title, value, subtitle }) => (
 );
 
 const AnalyticsSummary = ({ data }) => {
-  console.log('AnalyticsSummary FULL DATA:', {
-    data,
-    faultCauses: data?.faultCauses,
-    portFailureCauses: data?.portFailureCauses,
-    totalClientsAffected: data?.totalClientsAffected,
-    sampleCause: data?.faultCauses ? Object.entries(data.faultCauses)[0] : null,
-    samplePortFailureCause: data?.portFailureCauses ? Object.entries(data.portFailureCauses)[0] : null
-  });
+
 
   if (!data) {
     return null;
@@ -70,13 +63,6 @@ const AnalyticsSummary = ({ data }) => {
     totalPortFailures
   } = data;
 
-  // Debug log after destructuring
-  console.log('After destructuring:', {
-    hasFaultCauses: !!faultCauses,
-    hasPortFailureCauses: !!portFailureCauses,
-    faultCausesEntries: faultCauses ? Object.entries(faultCauses) : [],
-    portFailureCausesEntries: portFailureCauses ? Object.entries(portFailureCauses) : []
-  });
 
   return (
     <Box>

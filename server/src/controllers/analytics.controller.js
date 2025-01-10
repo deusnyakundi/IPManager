@@ -235,7 +235,7 @@ const uploadFile = async (req, res) => {
       // Insert file record with initial status
       const fileResult = await client.query(
         'INSERT INTO analytics_files (filename, original_name, upload_date, uploaded_by, status) VALUES ($1, $2, NOW(), $3, $4) RETURNING id',
-        [req.file.filename, req.file.originalname, req.user.id, 'processing']
+        [req.file.filename, req.file.originalname, req.user.userId, 'processing']
       );
       const fileId = fileResult.rows[0].id;
       
