@@ -34,6 +34,14 @@ const ImpactAnalysis = ({ data }) => {
   const theme = useTheme();
   const [category, setCategory] = useState('port_failures');
 
+  console.log('ImpactAnalysis data:', {
+    hasData: !!data,
+    category,
+    hasFaultCauseDistribution: !!data?.faultCauseDistribution,
+    faultCauseDistributionKeys: data?.faultCauseDistribution ? Object.keys(data.faultCauseDistribution) : [],
+    categoryData: data?.faultCauseDistribution?.[category]
+  });
+
   if (!data) {
     return null;
   }
@@ -63,6 +71,9 @@ const ImpactAnalysis = ({ data }) => {
     theme.palette.info.main,
     theme.palette.success.main,
   ];
+
+  // Ensure we have valid data for the fault cause distribution
+  const currentFaultCauses = faultCauseDistribution?.[category] || [];
 
   return (
     <Box>
@@ -165,7 +176,7 @@ const ImpactAnalysis = ({ data }) => {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={faultCauseDistribution[category]}
+                      data={currentFaultCauses}
                       dataKey="count"
                       nameKey="cause"
                       cx="50%"
@@ -173,41 +184,7 @@ const ImpactAnalysis = ({ data }) => {
                       outerRadius={100}
                       label
                     >
-                      {faultCauseDistribution[category]?.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                MTTR Distribution
-              </Typography>
-              <Box height={300}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={mttrDistribution[category]}
-                      dataKey="count"
-                      nameKey="range"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      label
-                    >
-                      {mttrDistribution[category]?.map((entry, index) => (
+                      {currentFaultCauses.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={COLORS[index % COLORS.length]}
@@ -237,14 +214,10 @@ const ImpactAnalysis = ({ data }) => {
                         range: item.range,
                         'Client Impact': item.count,
                       })) || [],
-                      ...mttrDistribution[category]?.map(item => ({
-                        range: item.range,
-                        'MTTR': item.count,
-                      })) || [],
-                      ...faultCauseDistribution[category]?.map(item => ({
+                      ...currentFaultCauses.map(item => ({
                         range: item.cause,
                         'Fault Causes': item.count,
-                      })) || [],
+                      })) || []
                     ]}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -253,7 +226,6 @@ const ImpactAnalysis = ({ data }) => {
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="Client Impact" fill={theme.palette.primary.main} />
-                    <Bar dataKey="MTTR" fill={theme.palette.secondary.main} />
                     <Bar dataKey="Fault Causes" fill={theme.palette.error.main} />
                   </BarChart>
                 </ResponsiveContainer>

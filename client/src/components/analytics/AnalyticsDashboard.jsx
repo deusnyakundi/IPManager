@@ -36,6 +36,7 @@ import { PictureAsPdf as PptIcon } from '@mui/icons-material';
 import api from '../../utils/api';
 import AssignedGroupAnalysis from './AssignedGroupAnalysis';
 import EnhancedTrends from './EnhancedTrends';
+import AnalyticsSummary from './AnalyticsSummary';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -236,7 +237,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
         </Grid>
 
         {/* Fault Types Table */}
-        <Paper elevation={3} sx={{ mt: 3, width: '100%' }}>
+        <Paper elevation={3} sx={{ mt: 3, width: '100%', mb: 4 }}>
           <Typography variant="h6" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             Fault Types Distribution
           </Typography>
@@ -289,6 +290,14 @@ const AnalyticsDashboard = ({ selectedFile }) => {
               })}
           </Box>
         </Paper>
+
+        {/* Detailed Analytics Summary */}
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Detailed Fault Analysis
+          </Typography>
+          <AnalyticsSummary data={summary} />
+        </Box>
       </Box>
     );
   };

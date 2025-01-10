@@ -46,7 +46,14 @@ const StatCard = ({ title, value, subtitle }) => (
 );
 
 const AnalyticsSummary = ({ data }) => {
-  const theme = useTheme();
+  console.log('AnalyticsSummary FULL DATA:', {
+    data,
+    faultCauses: data?.faultCauses,
+    portFailureCauses: data?.portFailureCauses,
+    totalClientsAffected: data?.totalClientsAffected,
+    sampleCause: data?.faultCauses ? Object.entries(data.faultCauses)[0] : null,
+    samplePortFailureCause: data?.portFailureCauses ? Object.entries(data.portFailureCauses)[0] : null
+  });
 
   if (!data) {
     return null;
@@ -59,222 +66,53 @@ const AnalyticsSummary = ({ data }) => {
     faultTypes,
     faultCauses,
     faultTypesByCause,
-    portFailureCategories,
+    portFailureCauses,
     totalPortFailures
   } = data;
 
-  const incidentsData = Object.entries(totalIncidents).map(([key, value]) => ({
-    name: key.replace('_', ' ').toUpperCase(),
-    value,
-  }));
-
-  const mttrData = Object.entries(avgMTTR).map(([key, value]) => ({
-    name: key.replace('_', ' ').toUpperCase(),
-    value: parseFloat(value).toFixed(2),
-  }));
-
-  const totalIncidentsCount = Object.values(totalIncidents).reduce(
-    (acc, curr) => acc + curr,
-    0
-  );
-
-  const totalClientsCount = Object.values(totalClientsAffected).reduce(
-    (acc, curr) => acc + curr,
-    0
-  );
-
-  const avgMTTRTotal =
-    Object.values(avgMTTR).reduce((acc, curr) => acc + parseFloat(curr), 0) /
-    Object.keys(avgMTTR).length;
-
-  const COLORS = [
-    theme.palette.primary.main,
-    theme.palette.secondary.main,
-    theme.palette.error.main,
-    theme.palette.warning.main,
-  ];
+  // Debug log after destructuring
+  console.log('After destructuring:', {
+    hasFaultCauses: !!faultCauses,
+    hasPortFailureCauses: !!portFailureCauses,
+    faultCausesEntries: faultCauses ? Object.entries(faultCauses) : [],
+    portFailureCausesEntries: portFailureCauses ? Object.entries(portFailureCauses) : []
+  });
 
   return (
     <Box>
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={3}>
+        {/* Total Incidents */}
         <Grid item xs={12} md={4}>
           <StatCard
             title="Total Incidents"
-            value={totalIncidentsCount}
+            value={totalIncidents}
             subtitle="Across all categories"
           />
         </Grid>
+
+        {/* Average MTTR */}
         <Grid item xs={12} md={4}>
           <StatCard
             title="Average MTTR"
-            value={`${avgMTTRTotal.toFixed(2)}h`}
+            value={avgMTTR}
             subtitle="Mean time to resolve"
           />
         </Grid>
+
+        {/* Total Clients Affected */}
         <Grid item xs={12} md={4}>
           <StatCard
             title="Total Clients Affected"
-            value={totalClientsCount}
+            value={totalClientsAffected.toLocaleString()}
             subtitle="Cumulative impact"
           />
         </Grid>
-      </Grid>
 
-      <Grid container spacing={3}>
-        {portFailureCategories && Object.keys(portFailureCategories).length > 0 && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Port Failures by Category
-              </Typography>
-              <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="right">Count</TableCell>
-                      <TableCell align="right">Avg MTTR</TableCell>
-                      <TableCell align="right">Clients Affected</TableCell>
-                      <TableCell align="right">% of Port Failures</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(portFailureCategories)
-                      .sort(([, a], [, b]) => b.count - a.count)
-                      .map(([category, stats]) => (
-                        <TableRow key={category}>
-                          <TableCell>{category}</TableCell>
-                          <TableCell align="right">{stats.count}</TableCell>
-                          <TableCell align="right">
-                            {(stats.mttr / stats.count).toFixed(2)}h
-                          </TableCell>
-                          <TableCell align="right">{stats.clientsAffected}</TableCell>
-                          <TableCell align="right">
-                            {((stats.count / totalPortFailures) * 100).toFixed(1)}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            </Paper>
-          </Grid>
-        )}
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Incidents by Type
-              </Typography>
-              <Box height={300}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={incidentsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" fill={theme.palette.primary.main} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Average MTTR by Type
-              </Typography>
-              <Box height={300}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mttrData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" fill={theme.palette.secondary.main} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
+        {/* Fault Cause Distribution */}
         <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Distribution by Category
-              </Typography>
-              <Box height={400}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={incidentsData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      label
-                    >
-                      {incidentsData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Fault Types Distribution
-            </Typography>
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Type</TableCell>
-                    <TableCell align="right">Count</TableCell>
-                    <TableCell align="right">%</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {Object.entries(faultTypes)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([type, count]) => (
-                      <TableRow key={type}>
-                        <TableCell>{type}</TableCell>
-                        <TableCell align="right">{count}</TableCell>
-                        <TableCell align="right">
-                          {((count / totalIncidents) * 100).toFixed(1)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Fault Causes Distribution
+              Fault Cause Distribution
             </Typography>
             <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
               <Table>
@@ -282,19 +120,23 @@ const AnalyticsSummary = ({ data }) => {
                   <TableRow>
                     <TableCell>Cause</TableCell>
                     <TableCell align="right">Count</TableCell>
-                    <TableCell align="right">%</TableCell>
+                    <TableCell align="right">Clients Affected</TableCell>
+                    <TableCell align="right">% of Total Clients</TableCell>
+                    <TableCell align="right">Avg MTTR</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {Object.entries(faultCauses)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([cause, count]) => (
+                    .sort(([, a], [, b]) => (b.clientsAffected || 0) - (a.clientsAffected || 0))
+                    .map(([cause, stats]) => (
                       <TableRow key={cause}>
                         <TableCell>{cause}</TableCell>
-                        <TableCell align="right">{count}</TableCell>
+                        <TableCell align="right">{stats.count}</TableCell>
+                        <TableCell align="right">{stats.clientsAffected.toLocaleString()}</TableCell>
                         <TableCell align="right">
-                          {((count / totalIncidents) * 100).toFixed(1)}%
+                          {((stats.clientsAffected / totalClientsAffected) * 100).toFixed(1)}%
                         </TableCell>
+                        <TableCell align="right">{stats.avgMTTRFormatted}</TableCell>
                       </TableRow>
                     ))}
                 </TableBody>
@@ -303,6 +145,7 @@ const AnalyticsSummary = ({ data }) => {
           </Paper>
         </Grid>
 
+        {/* Fault Types by Cause */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -339,41 +182,44 @@ const AnalyticsSummary = ({ data }) => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Port Failures by Cause
-            </Typography>
-            <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Cause</TableCell>
-                    <TableCell align="right">Count</TableCell>
-                    <TableCell align="right">Clients Affected</TableCell>
-                    <TableCell align="right">Avg MTTR</TableCell>
-                    <TableCell align="right">% of Port Failures</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.portFailureCauses && Object.entries(data.portFailureCauses)
-                    .sort(([, a], [, b]) => b.count - a.count)
-                    .map(([cause, stats]) => (
-                      <TableRow key={cause}>
-                        <TableCell>{cause}</TableCell>
-                        <TableCell align="right">{stats.count}</TableCell>
-                        <TableCell align="right">{stats.clientsAffected.toLocaleString()}</TableCell>
-                        <TableCell align="right">{stats.avgMTTRFormatted}</TableCell>
-                        <TableCell align="right">
-                          {((stats.count / data.totalPortFailures) * 100).toFixed(1)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </Paper>
-        </Grid>
+        {/* Port Failures by Cause */}
+        {portFailureCauses && Object.keys(portFailureCauses).length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Port Failures by Cause
+              </Typography>
+              <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Cause</TableCell>
+                      <TableCell align="right">Count</TableCell>
+                      <TableCell align="right">Clients Affected</TableCell>
+                      <TableCell align="right">Avg MTTR</TableCell>
+                      <TableCell align="right">% of Port Failures</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(portFailureCauses)
+                      .sort(([, a], [, b]) => b.count - a.count)
+                      .map(([cause, stats]) => (
+                        <TableRow key={cause}>
+                          <TableCell>{cause}</TableCell>
+                          <TableCell align="right">{stats.count}</TableCell>
+                          <TableCell align="right">{stats.clientsAffected.toLocaleString()}</TableCell>
+                          <TableCell align="right">{stats.avgMTTRFormatted}</TableCell>
+                          <TableCell align="right">
+                            {((stats.count / totalPortFailures) * 100).toFixed(1)}%
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

@@ -518,7 +518,7 @@ async function processExcelFile(filePath, fileId, client) {
           const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
           const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
           const assignedGroup = row['Assigned Group'] || row['Assigned'] || row['Team'] || 'Unknown';
-          const faultCause = row['Fault Cause'] || row['Root Cause'] || row['Cause'] || 'Unknown';
+          const faultCause = row['Causes'] || row['__EMPTY_15'] || 'Unknown';
 
           // Debug log for Adrian's port failures
           if (assignedGroup.toLowerCase().includes('adrian') && sheetName.toLowerCase().includes('port failure')) {
@@ -942,102 +942,78 @@ function calculateSummaryStats(data) {
   let totalMTTR = 0;
   let totalPortFailures = 0;
   const portFailureCategories = {};
-  const portFailureCauses = {}; // New object to track causes
+  const portFailureCauses = {}; // Track causes for port failures
+  const faultCauses = {}; // Track all fault causes
+  const faultTypes = {};
+  const faultTypesByCause = {};
 
-  // Calculate total MTTR with proper parsing
+  // Debug counters
+  const debugStats = {
+    totalRows: data.length,
+    causesFound: 0,
+    clientsTracked: 0
+  };
+
   data.forEach(incident => {
-    // First try to get duration from the Total Duration column
+    // Get duration
     let duration;
     const totalDurationStr = incident['Total Duration (hr:min:sec)'] || incident['__EMPTY_7'];
     
     if (totalDurationStr) {
       duration = parseTimeDuration(totalDurationStr);
     } else {
-      // If Total Duration is not available, calculate from timestamps
       duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
     }
 
-    // Track port failure categories and causes
-    if (incident.fault_type?.toLowerCase().includes('port')) {
-      totalPortFailures++;
-      
-      // Get the cause from Column P (Causes)
-      const cause = incident['Causes'] || incident['__EMPTY_15'] || 'Unknown';
-      
-      // Initialize or update cause statistics
-      if (!portFailureCauses[cause]) {
-        portFailureCauses[cause] = {
-          count: 0,
-          clientsAffected: 0,
-          mttr: 0
-        };
-      }
-      portFailureCauses[cause].count++;
-      portFailureCauses[cause].clientsAffected += parseInt(incident.clients_affected) || 0;
-      portFailureCauses[cause].mttr += duration;
-
-      // Track categories as before
-      const category = categorizeFault(incident);
-      if (category) {
-        if (!portFailureCategories[category]) {
-          portFailureCategories[category] = {
-            count: 0,
-            mttr: 0,
-            clientsAffected: 0
-          };
-        }
-        portFailureCategories[category].count++;
-        portFailureCategories[category].mttr += duration;
-        portFailureCategories[category].clientsAffected += parseInt(incident.clients_affected) || 0;
-      }
+    // Track all fault causes regardless of type
+    const cause = incident.fault_cause || 'Unknown';
+    if (!faultCauses[cause]) {
+      faultCauses[cause] = {
+        count: 0,
+        clientsAffected: 0,
+        mttr: 0
+      };
     }
+    faultCauses[cause].count++;
+    faultCauses[cause].clientsAffected += parseInt(incident.clients_affected) || 0;
+    faultCauses[cause].mttr += duration;
+    debugStats.causesFound++;
+    debugStats.clientsTracked += parseInt(incident.clients_affected) || 0;
+
+    // Track fault types
+    const type = incident.fault_type || 'Unknown';
+    faultTypes[type] = (faultTypes[type] || 0) + 1;
+    
+    if (!faultTypesByCause[type]) {
+      faultTypesByCause[type] = {};
+    }
+    faultTypesByCause[type][cause] = (faultTypesByCause[type][cause] || 0) + 1;
 
     totalMTTR += duration;
   });
 
-  // Calculate averages for port failure causes
-  Object.values(portFailureCauses).forEach(cause => {
+  // Calculate averages for all fault causes
+  Object.values(faultCauses).forEach(cause => {
     cause.avgMTTR = cause.count ? Number((cause.mttr / cause.count).toFixed(4)) : 0;
     cause.avgMTTRFormatted = formatTimeHHMMSS(cause.avgMTTR);
   });
 
-  // Calculate average MTTR with precision
-  const avgMTTR = totalIncidents ? Number((totalMTTR / totalIncidents).toFixed(4)) : 0;
-  
-  // Calculate total clients affected
-  const totalClientsAffected = data.reduce((acc, curr) => acc + parseInt(curr.clients_affected), 0);
-
-  // Calculate fault types
-  const faultTypes = {};
-  const faultCauses = {};
-  const faultTypesByCause = {};
-
-  data.forEach(incident => {
-    // Track fault types
-    faultTypes[incident.fault_type] = (faultTypes[incident.fault_type] || 0) + 1;
-    
-    // Track fault causes
-    faultCauses[incident.fault_cause] = (faultCauses[incident.fault_cause] || 0) + 1;
-    
-    // Track fault types by cause
-    if (!faultTypesByCause[incident.fault_type]) {
-      faultTypesByCause[incident.fault_type] = {};
-    }
-    faultTypesByCause[incident.fault_type][incident.fault_cause] = 
-      (faultTypesByCause[incident.fault_type][incident.fault_cause] || 0) + 1;
+  console.log('Summary Stats Processing:', {
+    debugStats,
+    totalFaultCauses: Object.keys(faultCauses).length,
+    sampleCause: Object.entries(faultCauses)[0],
+    totalClientsTracked: Object.values(faultCauses).reduce((sum, cause) => sum + cause.clientsAffected, 0)
   });
 
   return {
     totalIncidents,
-    avgMTTR,
-    avgMTTRFormatted: formatTimeHHMMSS(avgMTTR),
-    totalClientsAffected,
+    avgMTTR: totalIncidents ? Number((totalMTTR / totalIncidents).toFixed(4)) : 0,
+    avgMTTRFormatted: formatTimeHHMMSS(totalIncidents ? totalMTTR / totalIncidents : 0),
+    totalClientsAffected: debugStats.clientsTracked,
     faultTypes,
     faultCauses,
     faultTypesByCause,
-    totalPortFailures,
-    portFailureCategories,
-    portFailureCauses // Added to the return object
+    totalPortFailures
   };
 }
 
@@ -1240,6 +1216,22 @@ function calculateImpactStats(data) {
     '500+': 0
   };
 
+  // Calculate fault cause distribution
+  const faultCauseDistribution = {
+    port_failures: [],
+    degradations: [],
+    multiple_los: [],
+    olt_failures: []
+  };
+
+  // Group incidents by type and cause
+  const causesByType = {
+    port_failures: {},
+    degradations: {},
+    multiple_los: {},
+    olt_failures: {}
+  };
+
   data.forEach(incident => {
     const clients = parseInt(incident.clients_affected);
     if (clients <= 10) impactRanges['1-10']++;
@@ -1247,6 +1239,48 @@ function calculateImpactStats(data) {
     else if (clients <= 100) impactRanges['51-100']++;
     else if (clients <= 500) impactRanges['101-500']++;
     else impactRanges['500+']++;
+
+    // Track causes by incident type
+    const type = incident.fault_type?.toLowerCase() || '';
+    const cause = incident.fault_cause || 'Unknown';
+    let category;
+
+    if (type.includes('port')) {
+      category = 'port_failures';
+    } else if (type.includes('degrad')) {
+      category = 'degradations';
+    } else if (type.includes('los')) {
+      category = 'multiple_los';
+    } else if (type.includes('olt')) {
+      category = 'olt_failures';
+    } else {
+      return; // Skip if no matching category
+    }
+
+    if (!causesByType[category][cause]) {
+      causesByType[category][cause] = {
+        cause,
+        count: 0,
+        clients: 0
+      };
+    }
+    causesByType[category][cause].count++;
+    causesByType[category][cause].clients += clients;
+  });
+
+  // Convert causes by type to arrays for the frontend
+  Object.keys(causesByType).forEach(type => {
+    faultCauseDistribution[type] = Object.values(causesByType[type]);
+  });
+
+  console.log('Impact Stats - Fault Cause Distribution:', {
+    types: Object.keys(faultCauseDistribution),
+    sampleCounts: Object.fromEntries(
+      Object.entries(faultCauseDistribution).map(([type, causes]) => 
+        [type, causes.length]
+      )
+    ),
+    portFailuresSample: faultCauseDistribution.port_failures.slice(0, 2)
   });
 
   return {
@@ -1254,7 +1288,8 @@ function calculateImpactStats(data) {
     impactDistribution: Object.entries(impactRanges).map(([range, count]) => ({
       range,
       count
-    }))
+    })),
+    faultCauseDistribution
   };
 }
 
