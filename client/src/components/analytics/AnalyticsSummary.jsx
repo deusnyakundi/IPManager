@@ -338,6 +338,42 @@ const AnalyticsSummary = ({ data }) => {
             </Box>
           </Paper>
         </Grid>
+
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Port Failures by Cause
+            </Typography>
+            <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Cause</TableCell>
+                    <TableCell align="right">Count</TableCell>
+                    <TableCell align="right">Clients Affected</TableCell>
+                    <TableCell align="right">Avg MTTR</TableCell>
+                    <TableCell align="right">% of Port Failures</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {data.portFailureCauses && Object.entries(data.portFailureCauses)
+                    .sort(([, a], [, b]) => b.count - a.count)
+                    .map(([cause, stats]) => (
+                      <TableRow key={cause}>
+                        <TableCell>{cause}</TableCell>
+                        <TableCell align="right">{stats.count}</TableCell>
+                        <TableCell align="right">{stats.clientsAffected.toLocaleString()}</TableCell>
+                        <TableCell align="right">{stats.avgMTTRFormatted}</TableCell>
+                        <TableCell align="right">
+                          {((stats.count / data.totalPortFailures) * 100).toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
     </Box>
   );

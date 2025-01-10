@@ -645,7 +645,18 @@ function calculateAssignedGroupStats(incidents) {
     
     const group = incident.assigned_group?.trim() || 'Unknown';
     const sheetName = incident.sheet_name?.trim().toLowerCase() || '';
-    const duration = parseTimeDuration(incident.mttr);
+    
+    // Use the same MTTR calculation logic as summary stats
+    let duration;
+    const totalDurationStr = incident['Total Duration (hr:min:sec)'] || incident['__EMPTY_7'];
+    
+    if (totalDurationStr) {
+      duration = parseTimeDuration(totalDurationStr);
+    } else {
+      // If Total Duration is not available, calculate from timestamps
+      duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
+    }
+    
     const clientsAffected = parseInt(incident.clients_affected) || 0;
     
     // Initialize group if not exists
@@ -931,6 +942,7 @@ function calculateSummaryStats(data) {
   let totalMTTR = 0;
   let totalPortFailures = 0;
   const portFailureCategories = {};
+  const portFailureCauses = {}; // New object to track causes
 
   // Calculate total MTTR with proper parsing
   data.forEach(incident => {
@@ -945,20 +957,26 @@ function calculateSummaryStats(data) {
       duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
     }
 
-    console.log('Duration calculation:', {
-      ticket: incident.ticket_number,
-      totalDurationStr,
-      reportedDate: incident.reported_date,
-      clearedDate: incident.cleared_date,
-      calculatedDuration: duration,
-      originalMTTR: incident.mttr
-    });
-
-    totalMTTR += duration;
-
-    // Track port failure categories
+    // Track port failure categories and causes
     if (incident.fault_type?.toLowerCase().includes('port')) {
       totalPortFailures++;
+      
+      // Get the cause from Column P (Causes)
+      const cause = incident['Causes'] || incident['__EMPTY_15'] || 'Unknown';
+      
+      // Initialize or update cause statistics
+      if (!portFailureCauses[cause]) {
+        portFailureCauses[cause] = {
+          count: 0,
+          clientsAffected: 0,
+          mttr: 0
+        };
+      }
+      portFailureCauses[cause].count++;
+      portFailureCauses[cause].clientsAffected += parseInt(incident.clients_affected) || 0;
+      portFailureCauses[cause].mttr += duration;
+
+      // Track categories as before
       const category = categorizeFault(incident);
       if (category) {
         if (!portFailureCategories[category]) {
@@ -973,16 +991,18 @@ function calculateSummaryStats(data) {
         portFailureCategories[category].clientsAffected += parseInt(incident.clients_affected) || 0;
       }
     }
+
+    totalMTTR += duration;
+  });
+
+  // Calculate averages for port failure causes
+  Object.values(portFailureCauses).forEach(cause => {
+    cause.avgMTTR = cause.count ? Number((cause.mttr / cause.count).toFixed(4)) : 0;
+    cause.avgMTTRFormatted = formatTimeHHMMSS(cause.avgMTTR);
   });
 
   // Calculate average MTTR with precision
   const avgMTTR = totalIncidents ? Number((totalMTTR / totalIncidents).toFixed(4)) : 0;
-  console.log('MTTR Calculation:', {
-    totalMTTR,
-    totalIncidents,
-    avgMTTR,
-    formatted: formatTimeHHMMSS(avgMTTR)
-  });
   
   // Calculate total clients affected
   const totalClientsAffected = data.reduce((acc, curr) => acc + parseInt(curr.clients_affected), 0);
@@ -1016,7 +1036,8 @@ function calculateSummaryStats(data) {
     faultCauses,
     faultTypesByCause,
     totalPortFailures,
-    portFailureCategories
+    portFailureCategories,
+    portFailureCauses // Added to the return object
   };
 }
 
@@ -1035,7 +1056,7 @@ function calculateTrends(data) {
     
     // Get month
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
+
     // Initialize week data
     if (!weekly[weekKey]) {
       weekly[weekKey] = {
@@ -1262,7 +1283,7 @@ const getFileStatus = async (req, res) => {
     }
     
     res.json(result.rows[0]);
-    client.release();
+      client.release();
   } catch (error) {
     console.error('Error checking file status:', error);
     if (client) client.release();
