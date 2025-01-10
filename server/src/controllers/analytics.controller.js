@@ -1785,34 +1785,46 @@ const generatePowerPoint = async (req, res) => {
     });
 
     // Create assigned groups table data
+    const assignedGroups = calculateAssignedGroupStats(result.rows);
     const groupsTableData = [
       ["Group", "Port Failures", "Degradations", "Multiple LOS", "OLT Failures", "Avg MTTR"],
-      ...Object.entries(data.summary.assignedGroups || {}).map(([group, stats]) => [
+      ...Object.entries(assignedGroups).map(([group, stats]) => [
         group,
-        stats.portFailures?.count || 0,
-        stats.degradation?.count || 0,
-        stats.multipleLOS?.count || 0,
-        stats.oltFailures?.count || 0,
-        formatTimeHHMMSS((
-          (stats.portFailures?.avgMTTR || 0) +
-          (stats.degradation?.avgMTTR || 0) +
-          (stats.multipleLOS?.avgMTTR || 0) +
-          (stats.oltFailures?.avgMTTR || 0)
-        ) / 4)
+        stats.portFailures.count || 0,
+        stats.degradation.count || 0,
+        stats.multipleLOS.count || 0,
+        stats.oltFailures.count || 0,
+        stats.portFailures.avgMTTRFormatted || 
+        stats.degradation.avgMTTRFormatted || 
+        stats.multipleLOS.avgMTTRFormatted || 
+        stats.oltFailures.avgMTTRFormatted || 
+        '00:00:00'
       ])
     ];
 
-    groupsSlide.addTable(groupsTableData, {
-      x: 0.5,
-      y: 1,
-      w: 9,
-      h: 4,
-      fontSize: 12,
-      border: { type: 'solid', pt: 1, color: theme.primary },
-      colW: [2, 1.4, 1.4, 1.4, 1.4, 1.4],
-      rowH: 0.3,
-      fill: { color: 'F5F5F5' }
-    });
+    if (groupsTableData.length > 1) { // If we have data beyond the header
+      groupsSlide.addTable(groupsTableData, {
+        x: 0.5,
+        y: 1,
+        w: 9,
+        h: 4,
+        fontSize: 12,
+        border: { type: 'solid', pt: 1, color: theme.primary },
+        colW: [2, 1.4, 1.4, 1.4, 1.4, 1.4],
+        rowH: 0.3,
+        fill: { color: 'F5F5F5' }
+      });
+    } else {
+      groupsSlide.addText("No assigned groups data available", {
+        x: 0.5,
+        y: 1,
+        w: 9,
+        h: 1,
+        fontSize: 14,
+        color: "666666",
+        align: "center"
+      });
+    }
 
     // Add regional analysis slide
     console.log('Adding regional analysis slide...');
