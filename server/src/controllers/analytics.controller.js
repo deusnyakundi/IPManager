@@ -1631,7 +1631,7 @@ const generatePowerPoint = async (req, res) => {
       align: "center"
     });
 
-    // Add summary slide
+    // Add summary slide with cards and charts
     console.log('Adding summary slide...');
     const summarySlide = pptx.addSlide();
     summarySlide.addText("Summary Statistics", {
@@ -1644,7 +1644,7 @@ const generatePowerPoint = async (req, res) => {
       color: theme.primary
     });
 
-    // Add summary stats
+    // Add summary stats cards
     const summaryData = [
       ["Metric", "Value"],
       ["Total Incidents", data.summary.totalIncidents],
@@ -1664,15 +1664,14 @@ const generatePowerPoint = async (req, res) => {
       fill: { color: 'F5F5F5' }
     });
 
-    // Add fault types chart
-    console.log('Adding fault types chart...');
-    const chartData = [{
+    // Add fault types distribution
+    const faultTypeData = [{
       name: 'Fault Types',
       labels: Object.keys(data.summary.faultTypes || {}),
       values: Object.values(data.summary.faultTypes || {})
     }];
 
-    summarySlide.addChart(pptx.ChartType.pie, chartData, {
+    summarySlide.addChart(pptx.ChartType.pie, faultTypeData, {
       title: "Fault Type Distribution",
       showValue: true,
       showPercent: true,
@@ -1681,6 +1680,42 @@ const generatePowerPoint = async (req, res) => {
       y: 1,
       w: 4.5,
       h: 3
+    });
+
+    // Add fault causes slide
+    console.log('Adding fault causes slide...');
+    const causesSlide = pptx.addSlide();
+    causesSlide.addText("Fault Cause Analysis", {
+      x: 0,
+      y: 0.2,
+      w: 10,
+      h: 0.5,
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
+    });
+
+    // Add fault causes table
+    const causesTableData = [
+      ["Cause", "Count", "Clients Affected", "Avg MTTR"],
+      ...Object.entries(data.summary.faultCauses).map(([cause, stats]) => [
+        cause,
+        stats.count,
+        stats.clientsAffected.toLocaleString(),
+        stats.avgMTTRFormatted
+      ])
+    ];
+
+    causesSlide.addTable(causesTableData, {
+      x: 0.5,
+      y: 1,
+      w: 9,
+      h: 4,
+      fontSize: 12,
+      border: { type: 'solid', pt: 1, color: theme.primary },
+      colW: [3, 2, 2, 2],
+      rowH: 0.3,
+      fill: { color: 'F5F5F5' }
     });
 
     // Add trends slide
@@ -1696,15 +1731,15 @@ const generatePowerPoint = async (req, res) => {
       color: theme.primary
     });
 
-    // Monthly trends chart
-    const monthlyTrends = [{
+    // Monthly incidents trend
+    const monthlyIncidents = [{
       name: 'Incidents',
       labels: data.trends.monthly.map(m => m.month),
       values: data.trends.monthly.map(m => m.incidents)
     }];
 
-    trendsSlide.addChart(pptx.ChartType.line, monthlyTrends, {
-      title: "Monthly Trends",
+    trendsSlide.addChart(pptx.ChartType.line, monthlyIncidents, {
+      title: "Monthly Incidents",
       showValue: false,
       lineSize: 2,
       chartColors: [theme.primary],
@@ -1713,7 +1748,70 @@ const generatePowerPoint = async (req, res) => {
       x: 0.5,
       y: 1,
       w: 9,
-      h: 3
+      h: 2
+    });
+
+    // Monthly MTTR trend
+    const monthlyMTTR = [{
+      name: 'Average MTTR',
+      labels: data.trends.monthly.map(m => m.month),
+      values: data.trends.monthly.map(m => m.avgMTTR)
+    }];
+
+    trendsSlide.addChart(pptx.ChartType.line, monthlyMTTR, {
+      title: "Monthly Average MTTR",
+      showValue: false,
+      lineSize: 2,
+      chartColors: [theme.secondary],
+      valAxisTitle: "Hours",
+      catAxisTitle: "Month",
+      x: 0.5,
+      y: 3.5,
+      w: 9,
+      h: 2
+    });
+
+    // Add assigned groups slide
+    console.log('Adding assigned groups slide...');
+    const groupsSlide = pptx.addSlide();
+    groupsSlide.addText("Assigned Groups Analysis", {
+      x: 0,
+      y: 0.2,
+      w: 10,
+      h: 0.5,
+      fontSize: 24,
+      bold: true,
+      color: theme.primary
+    });
+
+    // Create assigned groups table data
+    const groupsTableData = [
+      ["Group", "Port Failures", "Degradations", "Multiple LOS", "OLT Failures", "Avg MTTR"],
+      ...Object.entries(data.summary.assignedGroups || {}).map(([group, stats]) => [
+        group,
+        stats.portFailures?.count || 0,
+        stats.degradation?.count || 0,
+        stats.multipleLOS?.count || 0,
+        stats.oltFailures?.count || 0,
+        formatTimeHHMMSS((
+          (stats.portFailures?.avgMTTR || 0) +
+          (stats.degradation?.avgMTTR || 0) +
+          (stats.multipleLOS?.avgMTTR || 0) +
+          (stats.oltFailures?.avgMTTR || 0)
+        ) / 4)
+      ])
+    ];
+
+    groupsSlide.addTable(groupsTableData, {
+      x: 0.5,
+      y: 1,
+      w: 9,
+      h: 4,
+      fontSize: 12,
+      border: { type: 'solid', pt: 1, color: theme.primary },
+      colW: [2, 1.4, 1.4, 1.4, 1.4, 1.4],
+      rowH: 0.3,
+      fill: { color: 'F5F5F5' }
     });
 
     // Add regional analysis slide
@@ -1729,7 +1827,7 @@ const generatePowerPoint = async (req, res) => {
       color: theme.primary
     });
 
-    // Regional analysis charts
+    // Regional incidents chart
     const regionalIncidents = [{
       name: 'Incidents',
       labels: data.regional.map(r => r.region),
@@ -1748,6 +1846,7 @@ const generatePowerPoint = async (req, res) => {
       h: 3
     });
 
+    // Regional MTTR chart
     const regionalMTTR = [{
       name: 'MTTR',
       labels: data.regional.map(r => r.region),
@@ -1797,6 +1896,54 @@ const generatePowerPoint = async (req, res) => {
       w: 4.5,
       h: 3
     });
+
+    // Add high impact incidents table
+    const highImpactData = [
+      ["Ticket", "Clients", "Region"],
+      ...data.impact.highImpactIncidents
+        .filter(incident => incident && incident.ticket_number)
+        .map(incident => [
+          incident.ticket_number || 'N/A',
+          (incident.clients_affected || 0).toLocaleString(),
+          incident.region || 'N/A'
+        ])
+    ];
+
+    // Only add the table if we have data
+    if (highImpactData.length > 1) { // More than just the header row
+      impactSlide.addText("Top High Impact Incidents", {
+        x: 5.5,
+        y: 1,
+        w: 4.5,
+        h: 0.3,
+        fontSize: 14,
+        bold: true,
+        color: theme.primary
+      });
+
+      impactSlide.addTable(highImpactData, {
+        x: 5.5,
+        y: 1.5,
+        w: 4.5,
+        h: 2.5,
+        fontSize: 12,
+        border: { type: 'solid', pt: 1, color: theme.primary },
+        colW: [1.5, 1.5, 1.5],
+        rowH: 0.3,
+        fill: { color: 'F5F5F5' }
+      });
+    } else {
+      // Add a message if no high impact incidents
+      impactSlide.addText("No high impact incidents to display", {
+        x: 5.5,
+        y: 1,
+        w: 4.5,
+        h: 1,
+        fontSize: 14,
+        color: "666666",
+        align: "center"
+      });
+    }
 
     // Save the presentation
     console.log('Generating PowerPoint buffer...');
