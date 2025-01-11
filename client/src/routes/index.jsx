@@ -17,6 +17,7 @@ import NavBar from '../components/layout/NavBar';
 import SiteSubmission from '../components/user/SiteSubmission';
 import PseudowireGenerator from '../components/config/PseudowireGenerator';
 import Analytics from '../pages/Analytics';
+import IPAssignments from '../components/ip/IPAssignments';
 
 const AppRoutes = () => {
     const { isAuthenticated, user } = useAuth();
@@ -181,6 +182,16 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute adminOnly>
                             <PseudowireGenerator />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* IP Assignments */}
+                <Route
+                    path="/ip/assignments"
+                    element={
+                        <ProtectedRoute allowedRoles={['admin', 'support']}>
+                            <IPAssignments />
                         </ProtectedRoute>
                     }
                 />

@@ -8,11 +8,16 @@ import {
   Paper,
   Grid,
   TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { siteAPI } from '../../services/siteAPI';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import api from '../../utils/api';
 import SearchIcon from '@mui/icons-material/Search';
+import IPAssignments from '../ip/IPAssignments';
 
 const SiteSubmission = () => {
   const [sites, setSites] = useState([]);
@@ -24,6 +29,8 @@ const SiteSubmission = () => {
   const [primaryVCID, setPrimaryVCID] = useState('');
   const [secondaryVCID, setSecondaryVCID] = useState('');
   const [vsiId, setVsiId] = useState('');
+  const [howToDialog, setHowToDialog] = useState(false);
+  const [assignmentsDialog, setAssignmentsDialog] = useState(false);
 
   useEffect(() => {
     fetchSites();
@@ -128,6 +135,26 @@ const SiteSubmission = () => {
               >
                 Generate IP Address
               </Typography>
+            </Grid>
+            <Grid item>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setHowToDialog(true)}
+                  sx={{ height: '32px' }}
+                >
+                  How to
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setAssignmentsDialog(true)}
+                  sx={{ height: '32px' }}
+                >
+                  IP Assignments
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </Paper>
@@ -277,6 +304,43 @@ const SiteSubmission = () => {
           </Box>
         </Paper>
       </Box>
+
+      {/* How To Dialog */}
+      <Dialog
+        open={howToDialog}
+        onClose={() => setHowToDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>How to Load Configuration Files</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1" gutterBottom>
+              Configuration instructions will go here...
+            </Typography>
+            {/* Add copy code button and content later */}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHowToDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IP Assignments Dialog */}
+      <Dialog
+        open={assignmentsDialog}
+        onClose={() => setAssignmentsDialog(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>IP Assignments</DialogTitle>
+        <DialogContent>
+          <IPAssignments />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAssignmentsDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

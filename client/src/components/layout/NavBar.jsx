@@ -41,7 +41,8 @@ import {
   Build as NetworkSettingsIcon,
   Dashboard as DashboardIcon,
   AdminPanelSettings as AdminIcon,
-  BarChart as BarChartIcon
+  BarChart as BarChartIcon,
+  ListAlt as ListAltIcon
 } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
@@ -93,16 +94,14 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 const menuItems = [
   { path: '/', label: 'Dashboard', icon: <DashboardIcon />, adminOnly: false },
   { path: '/sites', label: 'Sites', icon: <SitesIcon />, adminOnly: true },
-  //{ path: '/regions', label: 'Regions', icon: <RegionsIcon />, adminOnly: true },
   { path: '/ip-blocks', label: 'IP Blocks', icon: <IPBlocksIcon />, adminOnly: true },
   { path: '/vlan-ranges', label: 'VLAN Ranges', icon: <VLANIcon />, adminOnly: true },
   { path: '/vcid-ranges', label: 'VCID Ranges', icon: <VCIDIcon />, adminOnly: true },
   { path: '/generate-ip', label: 'Generate IP', icon: <AddIcon />, adminOnly: false },
   { path: '/config-generator', label: 'Configuration', icon: <SettingsIcon />, adminOnly: false },
-  //{ path: '/network-settings', label: 'Network Settings', icon: <NetworkSettingsIcon />, adminOnly: true },
   { path: '/infra-manager', label: 'Infrastructure Manager', icon: <NetworkSettingsIcon />, adminOnly: true },
   { path: '/analytics', label: 'Analytics', icon: <BarChartIcon />, adminOnly: false },
-  { path: '/admin', label: 'Admin Panel', icon: <AdminIcon />, adminOnly: true },
+  { path: '/admin', label: 'Admin Panel', icon: <AdminIcon />, adminOnly: true }
 ];
 
 const NavBar = ({ children }) => {

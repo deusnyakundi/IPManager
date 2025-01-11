@@ -90,3 +90,78 @@ exports.deleteIPBlock = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getIPAssignments = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        ip_assignments.*,
+        ic.name AS cluster_name,
+        u.username AS assigned_by_user
+      FROM ip_assignments
+      LEFT JOIN ipran_clusters ic ON ip_assignments.ipran_cluster_id = ic.id
+      LEFT JOIN users u ON ip_assignments.assigned_by = u.id
+      ORDER BY ip_assignments.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching IP assignments:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateIPAssignment = async (req, res) => {
+  const { id } = req.params;
+  const { vendor } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Start a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Update the IP assignment
+      const updateResult = await client.query(
+        `ALTER TABLE ip_assignments 
+         ADD COLUMN IF NOT EXISTS vendor VARCHAR(10);
+         
+         UPDATE ip_assignments 
+         SET vendor = $1, 
+             modified_by = $2,
+             modified_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [vendor, userId, id]
+      );
+
+      if (updateResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'IP assignment not found' });
+      }
+
+      // Get the updated record with related information
+      const result = await client.query(`
+        SELECT 
+          ip_assignments.*,
+          ic.name AS cluster_name,
+          u.username AS assigned_by_user
+        FROM ip_assignments
+        LEFT JOIN ipran_clusters ic ON ip_assignments.ipran_cluster_id = ic.id
+        LEFT JOIN users u ON ip_assignments.assigned_by = u.id
+        WHERE ip_assignments.id = $1
+      `, [id]);
+
+      await client.query('COMMIT');
+      res.json(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error updating IP assignment:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
