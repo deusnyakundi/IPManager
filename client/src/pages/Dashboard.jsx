@@ -112,9 +112,14 @@ const Dashboard = () => {
     console.log('Fetching dashboard data...');
     try {
       setLoading(true);
-      const response = await api.get('/config/assignments');
-      console.log('API Response:', response.data);
-      const assignments = response.data;
+      
+      // Fetch IP assignments for vendor stats
+      const ipAssignmentsResponse = await api.get('/ip/assignments');
+      const vendorStats = ipAssignmentsResponse.data.stats;
+
+      const configResponse = await api.get('/config/assignments');
+      console.log('API Response:', configResponse.data);
+      const assignments = configResponse.data;
 
       // Calculate statistics
       const regionCounts = assignments.reduce((acc, site) => {
@@ -154,29 +159,19 @@ const Dashboard = () => {
 
       // Count unique sites (base names without 02, 03, 04 suffixes)
       const uniqueSites = assignments.reduce((acc, site) => {
-        const baseSiteName = site.base_name.replace(/(OLT.*)/, 'OLT').trim(); // Correct regex
-        acc.add(baseSiteName);
+        const baseSiteName = site.base_name.replace(/(OLT.*)/, 'OLT').trim();
         acc.add(baseSiteName);
         return acc;
       }, new Set()).size;
-      console.log("Unique Sites Set:", uniqueSites);
 
-      // Count vendor types
-      const vendorCounts = assignments.reduce((acc, site) => {
-        const vendorTypes = site.vendor_types ? site.vendor_types.split(',') : [];
-        vendorTypes.forEach(type => {
-          if (type === 'huawei') acc.adrian += Number(site.olt_count);
-          else if (type === 'nokia') acc.nokia += Number(site.olt_count);
-        });
-        return acc;
-      }, {  huawei: 0, nokia: 0 });
+      console.log("Unique Sites Set:", uniqueSites);
 
       console.log('Processed stats:', {
         totalOLTs,
         uniqueSites,
         regionCounts,
         mspCounts,
-        vendorCounts,
+        vendorStats,
         sitesPerRegionCount
       });
 
@@ -189,12 +184,20 @@ const Dashboard = () => {
         oltByMSP: Object.entries(mspCounts)
           .map(([name, value]) => ({ name, value }))
           .filter(item => item.name !== 'null'),
-        oltByType: vendorCounts,
+        oltByType: {
+          huawei: vendorStats.huawei || 0,
+          nokia: vendorStats.nokia || 0
+        },
         sitesPerRegion: sitesPerRegionCount,
         detailedData: assignments
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setNotification({
+        open: true,
+        message: 'Failed to fetch dashboard data',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }

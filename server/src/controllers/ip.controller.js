@@ -97,13 +97,31 @@ exports.getIPAssignments = async (req, res) => {
       SELECT 
         ip_assignments.*,
         ic.name AS cluster_name,
-        u.username AS assigned_by_user
+        u.username AS assigned_by_user,
+        COUNT(*) FILTER (WHERE vendor = 'Huawei') OVER () as huawei_count,
+        COUNT(*) FILTER (WHERE vendor = 'Nokia') OVER () as nokia_count
       FROM ip_assignments
       LEFT JOIN ipran_clusters ic ON ip_assignments.ipran_cluster_id = ic.id
       LEFT JOIN users u ON ip_assignments.assigned_by = u.id
       ORDER BY ip_assignments.created_at DESC
     `);
-    res.json(result.rows);
+
+    // Transform the result to include vendor counts
+    const assignments = result.rows.map(row => {
+      const { huawei_count, nokia_count, ...assignment } = row;
+      return assignment;
+    });
+
+    // Add vendor counts to the response
+    const response = {
+      assignments,
+      stats: {
+        huawei: result.rows[0]?.huawei_count || 0,
+        nokia: result.rows[0]?.nokia_count || 0
+      }
+    };
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching IP assignments:', error);
     res.status(500).json({ error: error.message });
