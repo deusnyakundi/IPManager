@@ -123,10 +123,7 @@ exports.updateIPAssignment = async (req, res) => {
 
       // Update the IP assignment
       const updateResult = await client.query(
-        `ALTER TABLE ip_assignments 
-         ADD COLUMN IF NOT EXISTS vendor VARCHAR(10);
-         
-         UPDATE ip_assignments 
+        `UPDATE ip_assignments 
          SET vendor = $1, 
              modified_by = $2,
              modified_at = NOW()
