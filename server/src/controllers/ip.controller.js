@@ -130,7 +130,7 @@ exports.getIPAssignments = async (req, res) => {
 
 exports.updateIPAssignment = async (req, res) => {
   const { id } = req.params;
-  const { vendor } = req.body;
+  const { vendor, primary_vcid, secondary_vcid, vsi_id } = req.body;
   const userId = req.user.userId;
 
   try {
@@ -142,12 +142,15 @@ exports.updateIPAssignment = async (req, res) => {
       // Update the IP assignment
       const updateResult = await client.query(
         `UPDATE ip_assignments 
-         SET vendor = $1, 
-             modified_by = $2,
+         SET vendor = COALESCE($1, vendor),
+             primary_vcid = COALESCE($2, primary_vcid),
+             secondary_vcid = COALESCE($3, secondary_vcid),
+             vsi_id = COALESCE($4, vsi_id),
+             modified_by = $5,
              modified_at = NOW()
-         WHERE id = $3
+         WHERE id = $6
          RETURNING *`,
-        [vendor, userId, id]
+        [vendor, primary_vcid, secondary_vcid, vsi_id, userId, id]
       );
 
       if (updateResult.rows.length === 0) {
