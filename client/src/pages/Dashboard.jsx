@@ -540,7 +540,14 @@ const Dashboard = () => {
                     height={70} 
                     tick={{ fill: theme.palette.text.primary }}
                   />
-                  <YAxis tick={{ fill: theme.palette.text.primary }} />
+                  <YAxis 
+                    tick={{ fill: theme.palette.text.primary }}
+                    domain={[0, dataMax => Math.ceil(dataMax * 1.2)]}
+                    allowDataOverflow={false}
+                    tickCount={10}
+                    type="number"
+                    allowDecimals={false}
+                  />
                   <RechartsTooltip 
                     contentStyle={{ 
                       backgroundColor: theme.palette.background.paper,
@@ -630,7 +637,12 @@ const Dashboard = () => {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.primary, 0.1)} />
                     <XAxis dataKey="name" tick={{ fill: theme.palette.text.primary }} />
-                    <YAxis tick={{ fill: theme.palette.text.primary }} />
+                    <YAxis 
+                      tick={{ fill: theme.palette.text.primary }}
+                      domain={[0, dataMax => Math.max(20, Math.ceil(dataMax * 1.2))]}
+                      allowDecimals={false}
+                      type="number"
+                    />
                     <RechartsTooltip 
                       contentStyle={{ 
                         backgroundColor: theme.palette.background.paper,

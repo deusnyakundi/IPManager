@@ -969,11 +969,11 @@ function calculateSummaryStats(data) {
     const cause = incident.fault_cause || 'Unknown';
     if (!faultCauses[cause]) {
       faultCauses[cause] = {
-        count: 0,
-        clientsAffected: 0,
-        mttr: 0
-      };
-    }
+          count: 0,
+          clientsAffected: 0,
+          mttr: 0
+        };
+      }
     faultCauses[cause].count++;
     faultCauses[cause].clientsAffected += parseInt(incident.clients_affected) || 0;
     faultCauses[cause].mttr += duration;
@@ -1804,10 +1804,10 @@ const generatePowerPoint = async (req, res) => {
 
     if (groupsTableData.length > 1) { // If we have data beyond the header
       groupsSlide.addTable(groupsTableData, {
-        x: 0.5,
-        y: 1,
-        w: 9,
-        h: 4,
+      x: 0.5,
+      y: 1,
+      w: 9,
+      h: 4,
         fontSize: 12,
         border: { type: 'solid', pt: 1, color: theme.primary },
         colW: [2, 1.4, 1.4, 1.4, 1.4, 1.4],
