@@ -60,8 +60,7 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     setLoading(true);
     setError('');
     try {
-  
-      const response = await api.get('/analytics/analyze', {
+      const response = await api.get('/analytics/data', {
         params: {
           fileId: selectedFile.id,
           type: 'all'
@@ -138,13 +137,13 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   const renderSummary = () => {
     const currentData = getCurrentData();
     if (!currentData) {
-      console.log('No current data available for summary');
+    
       return null;
     }
-    console.log('Rendering summary with data:', currentData.summary);
+   
     const summary = currentData.summary;
     if (!summary) {
-      console.log('No summary data available');
+     
       return (
         <Alert severity="warning" sx={{ mt: 2 }}>
           No summary data available for this sheet

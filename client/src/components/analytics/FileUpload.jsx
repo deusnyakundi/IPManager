@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogActions,
   Radio,
+  Chip,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -33,9 +34,12 @@ const FileUpload = ({ onFileSelect }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [processingFiles, setProcessingFiles] = useState(new Set());
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState(null);
-  const [selectedUploadedFile, setSelectedUploadedFile] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   // Fetch upload history on component mount
   useEffect(() => {
@@ -154,34 +158,34 @@ const FileUpload = ({ onFileSelect }) => {
     }
   };
 
-  const handleDeleteClick = (file) => {
-    setFileToDelete(file);
-    setDeleteDialogOpen(true);
-  };
-
   const handleDeleteConfirm = async () => {
-    if (!fileToDelete) return;
-
     try {
-      await api.delete(`/analytics/upload/${fileToDelete.id}`);
-      setSuccess('File deleted successfully');
-      if (selectedUploadedFile?.id === fileToDelete.id) {
-        setSelectedUploadedFile(null);
-        onFileSelect(null);
-      }
-      await fetchUploadHistory();
+      await api.delete(`/analytics/upload/${selectedFile.id}`);
+      
+      // Update the file list
+      fetchUploadHistory();
+      
+      // Show success notification
+      setNotification({
+        open: true,
+        message: 'File deleted successfully',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Delete error:', error);
-      setError('Failed to delete file');
+      setNotification({
+        open: true,
+        message: error.response?.data?.error || 'Failed to delete file',
+        severity: 'error'
+      });
     } finally {
-      setDeleteDialogOpen(false);
-      setFileToDelete(null);
+      setDeleteDialog(false);
     }
   };
 
-  const handleFileSelection = (file) => {
-    setSelectedUploadedFile(file);
-    onFileSelect(file);
+  const handleDelete = (file) => {
+    setSelectedFile(file);
+    setDeleteDialog(true);
   };
 
   const formatDate = (dateString) => {
@@ -255,13 +259,12 @@ const FileUpload = ({ onFileSelect }) => {
           </IconButton>
         </Box>
 
-        <TableContainer>
-          <Table size="small">
+        <TableContainer component={Paper} sx={{ mt: 3 }}>
+          <Table>
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">Select</TableCell>
-                <TableCell>Filename</TableCell>
-                <TableCell>Uploaded By</TableCell>
+                <TableCell>Select</TableCell>
+                <TableCell>File Name</TableCell>
                 <TableCell>Upload Date</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
@@ -269,43 +272,35 @@ const FileUpload = ({ onFileSelect }) => {
             </TableHead>
             <TableBody>
               {uploadHistory.map((file) => (
-                <TableRow 
-                  key={file.id}
-                  selected={selectedUploadedFile?.id === file.id}
-                  hover
-                  onClick={() => file.status === 'completed' && handleFileSelection(file)}
-                  sx={{ cursor: file.status === 'completed' ? 'pointer' : 'default' }}
-                >
-                  <TableCell padding="checkbox">
+                <TableRow key={file.id}>
+                  <TableCell>
                     <Radio
-                      checked={selectedUploadedFile?.id === file.id}
+                      checked={selectedFile?.id === file.id}
+                      onChange={() => onFileSelect(file)}
                       disabled={file.status !== 'completed'}
                     />
                   </TableCell>
-                  <TableCell>{file.filename}</TableCell>
-                  <TableCell>{file.uploaded_by_username}</TableCell>
-                  <TableCell>{formatDate(file.upload_date)}</TableCell>
+                  <TableCell>{file.original_name}</TableCell>
                   <TableCell>
-                    {processingFiles.has(file.id) ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        Processing
-                        <LinearProgress
-                          sx={{ width: 50, ml: 1 }}
-                          size={20}
-                        />
-                      </Box>
-                    ) : (
-                      file.status
-                    )}
+                    {new Date(file.upload_date).toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={file.status}
+                      color={
+                        file.status === 'completed' ? 'success' :
+                        file.status === 'processing' ? 'warning' :
+                        file.status === 'error' ? 'error' : 'default'
+                      }
+                      size="small"
+                    />
                   </TableCell>
                   <TableCell>
                     <IconButton
+                      onClick={() => handleDelete(file)}
                       size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(file);
-                      }}
-                      disabled={processingFiles.has(file.id)}
+                      color="error"
+                      title="Delete file"
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -317,15 +312,20 @@ const FileUpload = ({ onFileSelect }) => {
         </TableContainer>
       </Paper>
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+      <Dialog
+        open={deleteDialog}
+        onClose={() => setDeleteDialog(false)}
+        aria-labelledby="delete-dialog-title"
+      >
+        <DialogTitle id="delete-dialog-title">Confirm Delete</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete {fileToDelete?.filename}?
-          This action cannot be undone.
+          <Typography>
+            Are you sure you want to delete {selectedFile?.original_name}? This action cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">
+          <Button onClick={() => setDeleteDialog(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
             Delete
           </Button>
         </DialogActions>

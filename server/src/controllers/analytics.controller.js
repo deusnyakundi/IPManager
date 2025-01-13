@@ -482,6 +482,14 @@ async function processExcelFile(filePath, fileId, client) {
       const data = xlsx.utils.sheet_to_json(worksheet);
       console.log(`Processing sheet: ${sheetName}, Rows: ${data.length}`);
 
+      // Log column headers for the first row
+      if (data.length > 0) {
+        console.log('Available columns in sheet:', {
+          sheetName,
+          columns: Object.keys(data[0])
+        });
+      }
+
       // Process rows for this sheet
       for (const row of data) {
         try {
@@ -517,7 +525,19 @@ async function processExcelFile(filePath, fileId, client) {
           // Try different possible column names for other fields
           const ticketNumber = row['Incident ID'] || row['__EMPTY_10'];
           const region = row['Region'] || row['N.East'] || row['N.West'] || row['__EMPTY_11'];
-          const assignedGroup = row['Assigned Group'] || row['Assigned'] || row['Team'] || 'Unknown';
+          
+          // Log all potential assigned group fields
+          console.log('Assigned Group Field Values:', {
+            'Assigned Group': row['Assigned Group'],
+            'Assigned': row['Assigned'],
+            'Team': row['Team'],
+            'Assignment Group': row['Assignment Group'],
+            'Assigned Team': row['Assigned Team'],
+            '__EMPTY_12': row['__EMPTY_12'],
+            'All Keys': Object.keys(row)
+          });
+          
+          const assignedGroup = row['Assigned Group'] || row['Assignment Group'] || row['Assigned Team'] || row['Assigned'] || row['Team'] || row['__EMPTY_12'] || 'Unknown';
           const faultCause = row['Causes'] || row['__EMPTY_15'] || 'Unknown';
 
           // Debug log for Adrian's port failures
@@ -1303,26 +1323,21 @@ function getWeekNumber(date) {
 
 const getFileStatus = async (req, res) => {
   const { id } = req.params;
-  let client;
   
   try {
-    client = await pool.connect();
-    const result = await client.query(
-      'SELECT status, processed_rows, error_message FROM analytics_files WHERE id = $1',
+    const result = await pool.query(
+      'SELECT status, error_message FROM analytics_files WHERE id = $1',
       [id]
     );
-    
+
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'File not found' });
-      return;
+      return res.status(404).json({ error: 'File not found' });
     }
-    
+
     res.json(result.rows[0]);
-      client.release();
   } catch (error) {
-    console.error('Error checking file status:', error);
-    if (client) client.release();
-    res.status(500).json({ error: 'Error checking file status' });
+    console.error('Error getting file status:', error);
+    res.status(500).json({ error: 'Error getting file status' });
   }
 };
 
@@ -2001,10 +2016,54 @@ function categorizeFault(incident) {
   return null;
 }
 
+const deleteUpload = async (req, res) => {
+  const { id } = req.params;
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // First delete associated analytics data
+    await client.query('DELETE FROM analytics_data WHERE file_id = $1', [id]);
+
+    // Then delete the file record
+    const result = await client.query(
+      'DELETE FROM analytics_files WHERE id = $1 RETURNING filename',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Delete the physical file if it exists
+    const filePath = path.join(__dirname, '../../uploads', result.rows[0].filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    await client.query('COMMIT');
+    res.status(204).send();
+  } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    console.error('Error deleting upload:', error);
+    res.status(500).json({ error: 'Error deleting upload' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   uploadFile,
   getAnalyticsData,
   getUploadHistory,
   getFileStatus,
-  generatePowerPoint
+  generatePowerPoint,
+  deleteUpload
 }; 

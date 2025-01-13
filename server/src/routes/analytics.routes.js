@@ -1,25 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  uploadFile, 
-  getAnalyticsData, 
-  getUploadHistory, 
-  getFileStatus,
-  generatePowerPoint
-} = require('../controllers/analytics.controller');
 const { authenticateToken } = require('../middleware/auth.middleware');
-const { validateToken } = require('../middleware/csrf.middleware');
+const {
+  uploadFile,
+  getAnalyticsData,
+  getUploadHistory,
+  getFileStatus,
+  generatePowerPoint,
+  deleteUpload
+} = require('../controllers/analytics.controller');
 
-// Protected routes - apply authentication to all routes
+// Protect all routes with authentication
 router.use(authenticateToken);
 
-// Routes that need CSRF validation
-router.post('/upload', validateToken, uploadFile);
-
-// Routes that don't need CSRF validation (GET requests)
+router.post('/upload', uploadFile);
+router.get('/data', getAnalyticsData);
 router.get('/uploads', getUploadHistory);
 router.get('/upload/:id/status', getFileStatus);
-router.get('/analyze', getAnalyticsData);
 router.get('/powerpoint', generatePowerPoint);
+router.delete('/upload/:id', deleteUpload);
 
 module.exports = router; 
