@@ -28,7 +28,8 @@ import {
 import api from '../../utils/api';
 
 const FileUpload = ({ onFileSelect }) => {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [selectedAnalyticsFile, setSelectedAnalyticsFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadHistory, setUploadHistory] = useState([]);
   const [error, setError] = useState('');
@@ -113,19 +114,24 @@ const FileUpload = ({ onFileSelect }) => {
         return;
       }
 
-      setSelectedFile(file);
+      setUploadFile(file);
       setError('');
     }
   };
 
+  const handleAnalyticsFileSelect = (file) => {
+    setSelectedAnalyticsFile(file);
+    onFileSelect(file);
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile) {
+    if (!uploadFile) {
       setError('Please select a file first');
       return;
     }
 
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    formData.append('file', uploadFile);
 
     try {
       setUploadProgress(0);
@@ -139,7 +145,7 @@ const FileUpload = ({ onFileSelect }) => {
       });
 
       setSuccess('File uploaded successfully');
-      setSelectedFile(null);
+      setUploadFile(null);
       setUploadProgress(0);
       setProcessingFiles(new Set([...processingFiles, response.data.fileId]));
       await fetchUploadHistory();
@@ -147,20 +153,12 @@ const FileUpload = ({ onFileSelect }) => {
       console.error('Upload error:', error);
       const errorMessage = error.response?.data?.details || error.response?.data?.error || 'Failed to upload file';
       setError(errorMessage);
-      // Log detailed error information
-      if (error.response) {
-        console.log('Error response:', {
-          data: error.response.data,
-          status: error.response.status,
-          headers: error.response.headers
-        });
-      }
     }
   };
 
   const handleDeleteConfirm = async () => {
     try {
-      await api.delete(`/analytics/upload/${selectedFile.id}`);
+      await api.delete(`/analytics/upload/${selectedAnalyticsFile.id}`);
       
       // Update the file list
       fetchUploadHistory();
@@ -184,7 +182,7 @@ const FileUpload = ({ onFileSelect }) => {
   };
 
   const handleDelete = (file) => {
-    setSelectedFile(file);
+    setSelectedAnalyticsFile(file);
     setDeleteDialog(true);
   };
 
@@ -228,9 +226,9 @@ const FileUpload = ({ onFileSelect }) => {
               Select File
             </Button>
           </label>
-          {selectedFile && (
+          {uploadFile && (
             <Typography variant="body2" sx={{ mt: 1 }}>
-              Selected: {selectedFile.name}
+              Selected: {uploadFile.name}
             </Typography>
           )}
         </Box>
@@ -245,7 +243,7 @@ const FileUpload = ({ onFileSelect }) => {
           variant="contained"
           color="primary"
           onClick={handleUpload}
-          disabled={!selectedFile || uploadProgress > 0}
+          disabled={!uploadFile || uploadProgress > 0}
         >
           Upload
         </Button>
@@ -275,8 +273,8 @@ const FileUpload = ({ onFileSelect }) => {
                 <TableRow key={file.id}>
                   <TableCell>
                     <Radio
-                      checked={selectedFile?.id === file.id}
-                      onChange={() => onFileSelect(file)}
+                      checked={selectedAnalyticsFile?.id === file.id}
+                      onChange={() => handleAnalyticsFileSelect(file)}
                       disabled={file.status !== 'completed'}
                     />
                   </TableCell>
@@ -320,7 +318,7 @@ const FileUpload = ({ onFileSelect }) => {
         <DialogTitle id="delete-dialog-title">Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete {selectedFile?.original_name}? This action cannot be undone.
+            Are you sure you want to delete {selectedAnalyticsFile?.original_name}? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
