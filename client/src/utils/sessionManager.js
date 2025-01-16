@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const SESSION_TIMEOUT = 15 * 60 * 1000; // 30 minutes in milliseconds
 const WARNING_TIME = 5 * 60 * 1000; // 5 minutes before timeout
 const CHECK_INTERVAL = 60 * 1000; // Check every minute
 let timeoutId = null;
