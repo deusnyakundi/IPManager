@@ -1,14 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const ipController = require('../controllers/ip.controller');
 const { authenticateToken } = require('../middleware/auth.middleware');
+const ipController = require('../controllers/ip.controller');
 
-router.get('/blocks', authenticateToken,ipController.getIPBlocks);
-router.post('/blocks', authenticateToken,ipController.createIPBlock);
-router.delete('/blocks/:id', authenticateToken, ipController.deleteIPBlock);
+// Protect all routes with authentication
+router.use(authenticateToken);
 
-// New routes for IP assignments
-router.get('/assignments', authenticateToken, ipController.getIPAssignments);
-router.patch('/assignments/:id', authenticateToken, ipController.updateIPAssignment);
+// IP Blocks
+router.get('/blocks', ipController.getIPBlocks);
+router.post('/blocks', ipController.createIPBlock);
+router.delete('/blocks/:id', ipController.deleteIPBlock);
+router.get('/blocks/utilization', ipController.getIPBlockUtilization);
+
+// IP Assignments
+router.get('/assignments', ipController.getIPAssignments);
+router.post('/assignments', ipController.createIPAssignment);
+router.put('/assignments/:id', ipController.updateIPAssignment);
+router.delete('/assignments/:id', ipController.deleteIPAssignment);
 
 module.exports = router;

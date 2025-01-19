@@ -1,76 +1,78 @@
 const pool = require('../config/db');
+const { calculateSubnets } = require('../utils/ipUtils');
+const logger = require('../utils/logger');
 
-exports.getIPBlocks = async (req, res) => {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          ip_blocks.id, 
-          ip_blocks.block, 
-          ip_blocks.ipran_cluster_id,
-          ic.name AS cluster_name
-        FROM ip_blocks
-        LEFT JOIN ipran_clusters ic ON ip_blocks.ipran_cluster_id = ic.id
-        ORDER BY ip_blocks.id
-      `);
-      res.json(result.rows);
-    } catch (error) {
-      console.error('Error fetching IP blocks:', error);
-      res.status(500).json({ error: error.message });
+const getIPBlocks = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        ip_blocks.id, 
+        ip_blocks.block, 
+        ip_blocks.ipran_cluster_id,
+        ic.name AS cluster_name
+      FROM ip_blocks
+      LEFT JOIN ipran_clusters ic ON ip_blocks.ipran_cluster_id = ic.id
+      ORDER BY ip_blocks.id
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching IP blocks:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const createIPBlock = async (req, res) => {
+  const { block, ipranClusterId } = req.body;
+  try {
+    // Check if cluster exists
+    const clusterCheck = await pool.query(
+      'SELECT id FROM ipran_clusters WHERE id = $1',
+      [ipranClusterId]
+    );
+
+    if (clusterCheck.rows.length === 0) {
+      return res.status(400).json({ 
+        message: 'Invalid IPRAN cluster ID' 
+      });
     }
-  };
-  exports.createIPBlock = async (req, res) => {
-    const { block, ipranClusterId } = req.body;
-    try {
-      // Check if cluster exists
-      const clusterCheck = await pool.query(
-        'SELECT id FROM ipran_clusters WHERE id = $1',
-        [ipranClusterId]
-      );
 
-      if (clusterCheck.rows.length === 0) {
-        return res.status(400).json({ 
-          message: 'Invalid IPRAN cluster ID' 
-        });
-      }
+    // Check for duplicate block in the same cluster
+    const duplicate = await pool.query(
+      'SELECT id FROM ip_blocks WHERE block = $1 AND ipran_cluster_id = $2',
+      [block, ipranClusterId]
+    );
 
-      // Check for duplicate block in the same cluster
-      const duplicate = await pool.query(
-        'SELECT id FROM ip_blocks WHERE block = $1 AND ipran_cluster_id = $2',
-        [block, ipranClusterId]
-      );
-
-      if (duplicate.rows.length > 0) {
-        return res.status(400).json({ 
-          message: 'IP block already exists in this cluster' 
-        });
-      }
-
-      const result = await pool.query(
-        'INSERT INTO ip_blocks (block, ipran_cluster_id) VALUES ($1, $2) RETURNING *',
-        [block, ipranClusterId]
-      );
-      
-      // Fetch the newly created block with cluster information
-      const newBlock = await pool.query(`
-        SELECT 
-          ip_blocks.id, 
-          ip_blocks.block, 
-          ip_blocks.ipran_cluster_id,
-          ic.name AS cluster_name
-        FROM ip_blocks
-        LEFT JOIN ipran_clusters ic ON ip_blocks.ipran_cluster_id = ic.id
-        WHERE ip_blocks.id = $1
-      `, [result.rows[0].id]);
-      
-      res.status(201).json(newBlock.rows[0]);
-    } catch (error) {
-      console.error('Error creating IP block:', error);
-      res.status(500).json({ error: error.message });
+    if (duplicate.rows.length > 0) {
+      return res.status(400).json({ 
+        message: 'IP block already exists in this cluster' 
+      });
     }
-  };
 
+    const result = await pool.query(
+      'INSERT INTO ip_blocks (block, ipran_cluster_id) VALUES ($1, $2) RETURNING *',
+      [block, ipranClusterId]
+    );
+    
+    // Fetch the newly created block with cluster information
+    const newBlock = await pool.query(`
+      SELECT 
+        ip_blocks.id, 
+        ip_blocks.block, 
+        ip_blocks.ipran_cluster_id,
+        ic.name AS cluster_name
+      FROM ip_blocks
+      LEFT JOIN ipran_clusters ic ON ip_blocks.ipran_cluster_id = ic.id
+      WHERE ip_blocks.id = $1
+    `, [result.rows[0].id]);
+    
+    res.status(201).json(newBlock.rows[0]);
+  } catch (error) {
+    console.error('Error creating IP block:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
-exports.deleteIPBlock = async (req, res) => {
+const deleteIPBlock = async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
@@ -91,7 +93,7 @@ exports.deleteIPBlock = async (req, res) => {
   }
 };
 
-exports.getIPAssignments = async (req, res) => {
+const getIPAssignments = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -128,7 +130,7 @@ exports.getIPAssignments = async (req, res) => {
   }
 };
 
-exports.updateIPAssignment = async (req, res) => {
+const updateIPAssignment = async (req, res) => {
   const { id } = req.params;
   const { vendor, primary_vcid, secondary_vcid, vsi_id } = req.body;
   const userId = req.user.userId;
@@ -182,4 +184,164 @@ exports.updateIPAssignment = async (req, res) => {
     console.error('Error updating IP assignment:', error);
     res.status(500).json({ error: error.message });
   }
+};
+
+const createIPAssignment = async (req, res) => {
+  const { block_id, ipran_cluster_id, site_name, vendor, primary_vcid, secondary_vcid, vsi_id } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Start a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Verify the block exists and belongs to the specified cluster
+      const blockCheck = await client.query(
+        'SELECT id FROM ip_blocks WHERE id = $1 AND ipran_cluster_id = $2',
+        [block_id, ipran_cluster_id]
+      );
+
+      if (blockCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          message: 'Invalid IP block or cluster combination' 
+        });
+      }
+
+      // Create the IP assignment
+      const result = await client.query(
+        `INSERT INTO ip_assignments 
+          (block_id, ipran_cluster_id, site_name, vendor, primary_vcid, secondary_vcid, vsi_id, assigned_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+         RETURNING *`,
+        [block_id, ipran_cluster_id, site_name, vendor, primary_vcid, secondary_vcid, vsi_id, userId]
+      );
+
+      // Get the created record with related information
+      const newAssignment = await client.query(`
+        SELECT 
+          ip_assignments.*,
+          ic.name AS cluster_name,
+          u.username AS assigned_by_user
+        FROM ip_assignments
+        LEFT JOIN ipran_clusters ic ON ip_assignments.ipran_cluster_id = ic.id
+        LEFT JOIN users u ON ip_assignments.assigned_by = u.id
+        WHERE ip_assignments.id = $1
+      `, [result.rows[0].id]);
+
+      await client.query('COMMIT');
+      res.status(201).json(newAssignment.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    logger.error('Error creating IP assignment:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const deleteIPAssignment = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Start a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Check if the assignment exists
+      const checkResult = await client.query(
+        'SELECT id FROM ip_assignments WHERE id = $1',
+        [id]
+      );
+
+      if (checkResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ 
+          message: 'IP assignment not found' 
+        });
+      }
+
+      // Delete the assignment
+      await client.query(
+        'DELETE FROM ip_assignments WHERE id = $1',
+        [id]
+      );
+
+      await client.query('COMMIT');
+      res.status(204).send();
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    logger.error('Error deleting IP assignment:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Get utilization data for all IP blocks
+ * Each /24 block can have 64 /30 subnets
+ */
+const getIPBlockUtilization = async (req, res) => {
+  try {
+    // Get all IP blocks with their cluster names and count of assignments
+    const query = `
+      SELECT 
+        b.id,
+        b.block,
+        c.name as cluster_name,
+        (
+          SELECT COUNT(*)
+          FROM ip_assignments a
+          WHERE a.ipran_cluster_id = b.ipran_cluster_id
+          AND a.assigned_ip << b.block::inet
+        ) as used_subnets
+      FROM ip_blocks b
+      LEFT JOIN ipran_clusters c ON b.ipran_cluster_id = c.id
+      ORDER BY b.block
+    `;
+
+    const result = await pool.query(query);
+    
+    // Calculate utilization for each block
+    const utilizationData = result.rows.map(block => {
+      // Each /24 block can have 64 /30 subnets
+      const total_subnets = 64;
+      const used_subnets = parseInt(block.used_subnets);
+      const utilization_percentage = Math.round((used_subnets / total_subnets) * 100);
+
+      return {
+        id: block.id,
+        block: block.block,
+        cluster_name: block.cluster_name,
+        total_subnets,
+        used_subnets,
+        utilization_percentage
+      };
+    });
+
+    res.json(utilizationData);
+  } catch (error) {
+    logger.error('Error getting IP block utilization:', error);
+    res.status(500).json({ error: 'Failed to get IP block utilization' });
+  }
+};
+
+module.exports = {
+  getIPBlocks,
+  createIPBlock,
+  deleteIPBlock,
+  getIPAssignments,
+  createIPAssignment,
+  updateIPAssignment,
+  deleteIPAssignment,
+  getIPBlockUtilization
 };

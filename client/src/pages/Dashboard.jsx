@@ -27,6 +27,7 @@ import {
   TableRow,
   useTheme,
   alpha,
+  Divider,
 } from '@mui/material';
 import { 
   CellTower as SiteIcon,
@@ -59,6 +60,7 @@ import {
   Area,
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import IPBlockUtilization from '../components/IPBlockUtilization';
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -667,6 +669,12 @@ const Dashboard = () => {
               </Paper>
             </Grid>
           )}
+
+          {/* IP Block Utilization Section */}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 3 }} />
+            <IPBlockUtilization />
+          </Grid>
         </Grid>
       )}
       <DetailDialog />
