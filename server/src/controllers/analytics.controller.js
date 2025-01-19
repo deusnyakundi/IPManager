@@ -354,7 +354,18 @@ function aggregateWeeklyData(incidents) {
     
     const week = weeklyData[weekKey];
     week.incidents++;
-    week.mttr += parseTimeDuration(incident.mttr);
+    
+    // Get duration using same logic as summary stats
+    let duration;
+    const totalDurationStr = incident['Total Duration (hr:min:sec)'] || incident['__EMPTY_7'];
+    
+    if (totalDurationStr) {
+      duration = parseTimeDuration(totalDurationStr);
+    } else {
+      duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
+    }
+    
+    week.mttr += duration;
     const clientsAffected = extractTotalClients(incident);
     week.clientsAffected += clientsAffected;
     
@@ -362,12 +373,12 @@ function aggregateWeeklyData(incidents) {
     const type = incident.fault_type?.toLowerCase();
     if (type?.includes('port')) {
       week.portFailuresCount++;
-      week.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      week.portFailuresWithinSLA += calculateSLA(duration, 4);
       week.byIncidentType.portFailures++;
       week.clientsAffectedByType.portFailures += clientsAffected;
     } else if (type?.includes('degrad')) {
       week.degradationCount++;
-      week.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      week.degradationWithinSLA += calculateSLA(duration, 8);
       week.byIncidentType.degradation++;
       week.clientsAffectedByType.degradation += clientsAffected;
     } else if (type?.includes('los')) {
@@ -390,7 +401,7 @@ function aggregateWeeklyData(incidents) {
     
     const groupStats = week.byAssignedGroup[group];
     groupStats.totalIncidents++;
-    groupStats.mttr += parseTimeDuration(incident.mttr);
+    groupStats.mttr += duration;
     groupStats.clientsAffected += clientsAffected;
   });
   
@@ -429,8 +440,8 @@ function aggregateMonthlyData(weeklyData) {
     if (!monthlyData[monthKey]) {
       monthlyData[monthKey] = {
         period: monthKey,
-        totalIncidents: 0,
-        totalMTTR: 0,
+        incidents: 0,
+        mttr: 0,
         clientsAffected: 0,
         portFailuresCount: 0,
         portFailuresWithinSLA: 0,
@@ -447,8 +458,8 @@ function aggregateMonthlyData(weeklyData) {
     }
     
     const month = monthlyData[monthKey];
-    month.totalIncidents += week.totalIncidents;
-    month.totalMTTR += week.totalMTTR;
+    month.incidents += week.incidents;
+    month.mttr += week.mttr;
     month.clientsAffected += week.clientsAffected;
     month.portFailuresCount += week.portFailuresCount;
     month.portFailuresWithinSLA += week.portFailuresWithinSLA;
@@ -457,7 +468,7 @@ function aggregateMonthlyData(weeklyData) {
     
     // Aggregate incident types
     Object.entries(week.byIncidentType).forEach(([type, count]) => {
-      month.byIncidentType[type] += count;
+      month.byIncidentType[type] = (month.byIncidentType[type] || 0) + count;
     });
     
     // Aggregate assigned group data
@@ -465,7 +476,7 @@ function aggregateMonthlyData(weeklyData) {
       if (!month.byAssignedGroup[group]) {
         month.byAssignedGroup[group] = {
           totalIncidents: 0,
-          totalMTTR: 0,
+          mttr: 0,
           clientsAffected: 0,
           portFailuresCount: 0,
           portFailuresWithinSLA: 0,
@@ -476,7 +487,7 @@ function aggregateMonthlyData(weeklyData) {
       
       const monthGroup = month.byAssignedGroup[group];
       monthGroup.totalIncidents += stats.totalIncidents;
-      monthGroup.totalMTTR += stats.totalMTTR;
+      monthGroup.mttr += stats.mttr;
       monthGroup.clientsAffected += stats.clientsAffected;
       monthGroup.portFailuresCount += stats.portFailuresCount;
       monthGroup.portFailuresWithinSLA += stats.portFailuresWithinSLA;
@@ -487,7 +498,7 @@ function aggregateMonthlyData(weeklyData) {
   
   // Calculate averages and percentages
   Object.values(monthlyData).forEach(month => {
-    month.avgMTTR = month.totalIncidents ? month.totalMTTR / month.totalIncidents : 0;
+    month.avgMTTR = month.incidents ? month.mttr / month.incidents : 0;
     month.avgMTTRFormatted = formatTimeHHMMSS(month.avgMTTR);
     month.mttrFormatted = formatTimeHHMMSS(month.mttr);
     month.portFailuresSLA = month.portFailuresCount ? 
@@ -1211,28 +1222,28 @@ function calculateTrends(data) {
     // Update fault type specific stats
     if (type?.includes('port')) {
       weekData.portFailuresCount++;
-      weekData.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      weekData.portFailuresWithinSLA += calculateSLA(duration, 4);
       weekData.clientsAffectedByType.portFailures += clientsAffected;
       weekData.byAssignedGroup[group].portFailuresCount++;
-      weekData.byAssignedGroup[group].portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      weekData.byAssignedGroup[group].portFailuresWithinSLA += calculateSLA(duration, 4);
       
       monthData.portFailuresCount++;
-      monthData.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      monthData.portFailuresWithinSLA += calculateSLA(duration, 4);
       monthData.clientsAffectedByType.portFailures += clientsAffected;
       monthData.byAssignedGroup[group].portFailuresCount++;
-      monthData.byAssignedGroup[group].portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
+      monthData.byAssignedGroup[group].portFailuresWithinSLA += calculateSLA(duration, 4);
     } else if (type?.includes('degrad')) {
       weekData.degradationCount++;
-      weekData.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      weekData.degradationWithinSLA += calculateSLA(duration, 8);
       weekData.clientsAffectedByType.degradation += clientsAffected;
       weekData.byAssignedGroup[group].degradationCount++;
-      weekData.byAssignedGroup[group].degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      weekData.byAssignedGroup[group].degradationWithinSLA += calculateSLA(duration, 8);
       
       monthData.degradationCount++;
-      monthData.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      monthData.degradationWithinSLA += calculateSLA(duration, 8);
       monthData.clientsAffectedByType.degradation += clientsAffected;
       monthData.byAssignedGroup[group].degradationCount++;
-      monthData.byAssignedGroup[group].degradationWithinSLA += calculateSLA(incident.total_duration, 8);
+      monthData.byAssignedGroup[group].degradationWithinSLA += calculateSLA(duration, 8);
     } else if (type?.includes('los')) {
       weekData.clientsAffectedByType.multipleLOS += clientsAffected;
       monthData.clientsAffectedByType.multipleLOS += clientsAffected;

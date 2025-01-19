@@ -325,8 +325,28 @@ const AnalyticsDashboard = ({ selectedFile }) => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right"
+                    tickFormatter={(value) => {
+                      // Format the tick values in HH:mm:ss
+                      const hours = Math.floor(value);
+                      const minutes = Math.floor((value - hours) * 60);
+                      const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    }}
+                  />
+                  <Tooltip 
+                    formatter={(value, name) => {
+                      if (name === 'Avg MTTR') {
+                        const hours = Math.floor(value);
+                        const minutes = Math.floor((value - hours) * 60);
+                        const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                        return [`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`, name];
+                      }
+                      return [value, name];
+                    }}
+                  />
                   <Legend />
                   <Line
                     yAxisId="left"

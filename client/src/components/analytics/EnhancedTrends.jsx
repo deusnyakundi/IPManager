@@ -45,6 +45,7 @@ const EnhancedTrends = ({ data, timeframe }) => {
     period: timeframe === 'weekly' ? `Week ${item.week}` : item.month,
     'Total Incidents': item.incidents || 0,
     'Avg MTTR': item.avgMTTRFormatted || '00:00:00',
+    'Avg MTTR Raw': item.avgMTTR || 0,
     'Port Failures SLA (%)': item.portFailuresSLA || 0,
     'Degradation SLA (%)': item.degradationSLA || 0,
     'Clients Affected': item.clientsAffected || 0,
@@ -57,13 +58,17 @@ const EnhancedTrends = ({ data, timeframe }) => {
       ...acc,
       [`${group} Incidents`]: stats.totalIncidents || 0,
       [`${group} MTTR`]: stats.avgMTTRFormatted || '00:00:00',
+      [`${group} MTTR Raw`]: stats.avgMTTR || 0,
     }), {}),
   }));
 
-  // Custom tooltip formatter for MTTR values
+  // Custom tooltip formatter for MTTR values and percentages
   const formatTooltipValue = (value, name) => {
     if (name === 'Avg MTTR' || name.endsWith('MTTR')) {
       return value;
+    }
+    if (name.includes('SLA')) {
+      return `${value.toFixed(1)}%`;
     }
     return value;
   };
@@ -122,9 +127,22 @@ const EnhancedTrends = ({ data, timeframe }) => {
                         <YAxis 
                           yAxisId="right" 
                           orientation="right"
-                          tickFormatter={(value) => value}
+                          tickFormatter={(value) => {
+                            // Format the tick values in HH:mm:ss
+                            const hours = Math.floor(value);
+                            const minutes = Math.floor((value - hours) * 60);
+                            const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                          }}
                         />
-                        <Tooltip formatter={formatTooltipValue} />
+                        <Tooltip 
+                          formatter={(value, name) => {
+                            if (name === 'Avg MTTR') {
+                              return [value, name];
+                            }
+                            return [value, name];
+                          }}
+                        />
                         <Legend />
                         <Line
                           yAxisId="left"
@@ -202,18 +220,20 @@ const EnhancedTrends = ({ data, timeframe }) => {
                           return isPartial ? `${value}*` : value;
                         }}
                       />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip />
+                      <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                      <Tooltip formatter={formatTooltipValue} />
                       <Legend />
                       <Line
                         type="monotone"
                         dataKey="Port Failures SLA (%)"
                         stroke={theme.palette.primary.main}
+                        name="Port Failures SLA"
                       />
                       <Line
                         type="monotone"
                         dataKey="Degradation SLA (%)"
                         stroke={theme.palette.secondary.main}
+                        name="Degradation SLA"
                       />
                     </LineChart>
                   </ResponsiveContainer>
