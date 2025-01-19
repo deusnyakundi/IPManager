@@ -44,7 +44,7 @@ const EnhancedTrends = ({ data, timeframe }) => {
   const formattedData = trendsData.map(item => ({
     period: timeframe === 'weekly' ? `Week ${item.week}` : item.month,
     'Total Incidents': item.incidents || 0,
-    'Avg MTTR (hrs)': parseFloat(item.avgMTTR || 0).toFixed(2),
+    'Avg MTTR': item.avgMTTRFormatted || '00:00:00',
     'Port Failures SLA (%)': item.portFailuresSLA || 0,
     'Degradation SLA (%)': item.degradationSLA || 0,
     'Clients Affected': item.clientsAffected || 0,
@@ -56,9 +56,17 @@ const EnhancedTrends = ({ data, timeframe }) => {
     ...Object.entries(item.byAssignedGroup || {}).reduce((acc, [group, stats]) => ({
       ...acc,
       [`${group} Incidents`]: stats.totalIncidents || 0,
-      [`${group} MTTR`]: stats.avgMTTR || 0,
+      [`${group} MTTR`]: stats.avgMTTRFormatted || '00:00:00',
     }), {}),
   }));
+
+  // Custom tooltip formatter for MTTR values
+  const formatTooltipValue = (value, name) => {
+    if (name === 'Avg MTTR' || name.endsWith('MTTR')) {
+      return value;
+    }
+    return value;
+  };
 
   const handleViewChange = (event, newView) => {
     if (newView !== null) {
@@ -111,8 +119,12 @@ const EnhancedTrends = ({ data, timeframe }) => {
                           }}
                         />
                         <YAxis yAxisId="left" />
-                        <YAxis yAxisId="right" orientation="right" />
-                        <Tooltip />
+                        <YAxis 
+                          yAxisId="right" 
+                          orientation="right"
+                          tickFormatter={(value) => value}
+                        />
+                        <Tooltip formatter={formatTooltipValue} />
                         <Legend />
                         <Line
                           yAxisId="left"
@@ -123,8 +135,9 @@ const EnhancedTrends = ({ data, timeframe }) => {
                         <Line
                           yAxisId="right"
                           type="monotone"
-                          dataKey="Avg MTTR (hrs)"
+                          dataKey="Avg MTTR"
                           stroke={theme.palette.secondary.main}
+                          name="Avg MTTR"
                         />
                       </LineChart>
                     </ResponsiveContainer>
