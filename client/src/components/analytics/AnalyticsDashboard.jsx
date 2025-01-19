@@ -49,6 +49,15 @@ const AnalyticsDashboard = ({ selectedFile }) => {
   const [generatingPpt, setGeneratingPpt] = useState(false);
   const [pptSuccess, setPptSuccess] = useState(false);
   const [timeframe, setTimeframe] = useState('weekly');
+  const [selectedRegionalCategory, setSelectedRegionalCategory] = useState('port_failures');
+
+  // Map category values to display names
+  const categoryLabels = {
+    port_failures: 'Port Failures',
+    degradations: 'Degradations',
+    multiple_los: 'Multiple LOS',
+    olt_failures: 'OLT Failures'
+  };
 
   useEffect(() => {
     if (selectedFile) {
@@ -383,88 +392,114 @@ const AnalyticsDashboard = ({ selectedFile }) => {
     }
 
     console.log('Regional data:', currentData.regional);
+    console.log('Selected sheet:', selectedSheet);
 
-    // Combine similar regions and aggregate their data
-    const combinedRegions = currentData.regional.reduce((acc, curr) => {
-      const region = curr.region.toLowerCase().replace(/\./g, '').trim();
-      if (!acc[region]) {
-        acc[region] = {
-          region: curr.region,
-          incidents: 0,
-          avgMTTR: 0,
-          clientsAffected: 0,
-          mttrCount: 0
-        };
-      }
-      acc[region].incidents += curr.incidents;
-      acc[region].clientsAffected += curr.clientsAffected;
-      if (curr.avgMTTR) {
-        acc[region].avgMTTR += curr.avgMTTR;
-        acc[region].mttrCount++;
-      }
-      return acc;
-    }, {});
+    // Map sheet names to category keys
+    const sheetToCategory = {
+      'overall': 'port_failures', // default to port failures for overall view
+      'Port Failures': 'port_failures',
+      'Degradation': 'degradations',
+      'Multiple LOS': 'multiple_los',
+      'OLT Failure': 'olt_failures',  // Updated to match exact sheet name
+      'OLT Failures': 'olt_failures'  // Keep both variations just in case
+    };
 
-    // Convert back to array and calculate final averages
-    const regionalData = Object.values(combinedRegions).map(region => ({
-      ...region,
-      avgMTTR: region.mttrCount ? region.avgMTTR / region.mttrCount : 0
-    }));
+    const category = sheetToCategory[selectedSheet] || 'port_failures';
+    console.log('Mapped category:', category);
+    console.log('Available categories in mttrByRegion:', Object.keys(currentData.regional.mttrByRegion));
+
+    // Get data for the selected category
+    const regionalData = currentData.regional.mttrByRegion[category]?.map(region => ({
+      region: region.region,
+      incidents: region.incident_count,
+      avgMTTR: region.mttr,
+      avgMTTRFormatted: region.mttrFormatted,
+      clientsAffected: region.clients
+    })) || [];
+
+    console.log('Regional data for category:', category, regionalData);
 
     return (
-      <Grid container spacing={3}>
-        {/* Regional Distribution */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Regional Incident Distribution
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={regionalData}
-                  dataKey="incidents"
-                  nameKey="region"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ region, incidents }) => `${region}: ${incidents}`}
-                >
-                  {regionalData.map((entry, index) => (
-                    <Cell key={entry.region} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
+      <Box>
+        <Grid container spacing={3}>
+          {/* Regional Distribution */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Regional Incident Distribution - {selectedSheet}
+              </Typography>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={regionalData}
+                    dataKey="incidents"
+                    nameKey="region"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ region, incidents }) => `${region}: ${incidents}`}
+                  >
+                    {regionalData.map((entry, index) => (
+                      <Cell key={entry.region} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
 
-        {/* Regional MTTR */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Regional Average MTTR
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={regionalData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="region" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar 
-                  dataKey="avgMTTR" 
-                  fill="#82ca9d" 
-                  name="Average MTTR (Hours)"
-                  label={{ position: 'top' }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
+          {/* Regional MTTR */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Regional Average MTTR - {selectedSheet}
+              </Typography>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={regionalData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="region" />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      const hours = Math.floor(value);
+                      const minutes = Math.floor((value - hours) * 60);
+                      const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    }}
+                  />
+                  <Tooltip 
+                    formatter={(value, name) => {
+                      if (name === "Average MTTR") {
+                        const hours = Math.floor(value);
+                        const minutes = Math.floor((value - hours) * 60);
+                        const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                        return [`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`, name];
+                      }
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="avgMTTR" 
+                    fill="#82ca9d" 
+                    name="Average MTTR"
+                    label={{ 
+                      position: 'top',
+                      formatter: (value) => {
+                        const hours = Math.floor(value);
+                        const minutes = Math.floor((value - hours) * 60);
+                        const seconds = Math.floor(((value - hours) * 60 - minutes) * 60);
+                        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                      }
+                    }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
     );
   };
 

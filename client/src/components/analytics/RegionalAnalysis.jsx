@@ -23,6 +23,13 @@ import {
   Cell,
 } from 'recharts';
 
+const formatTimeHHMMSS = (hours) => {
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  const s = Math.floor(((hours - h) * 60 - m) * 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
 const RegionalAnalysis = ({ data }) => {
   const theme = useTheme();
   const [category, setCategory] = useState('port_failures');
@@ -56,16 +63,19 @@ const RegionalAnalysis = ({ data }) => {
         return incidentsByRegion[category]?.map(region => ({
           name: region.region,
           value: parseInt(region.incident_count),
+          displayValue: region.incident_count,
         })) || [];
       case 'mttr':
         return mttrByRegion[category]?.map(region => ({
           name: region.region,
-          value: parseFloat(region.mttr).toFixed(2),
+          value: region.mttr,
+          displayValue: region.mttrFormatted,
         })) || [];
       case 'clients':
         return clientsAffectedByRegion[category]?.map(region => ({
           name: region.region,
           value: parseInt(region.clients),
+          displayValue: region.clients,
         })) || [];
       default:
         return [];
@@ -87,12 +97,26 @@ const RegionalAnalysis = ({ data }) => {
       case 'incidents':
         return 'Number of Incidents';
       case 'mttr':
-        return 'Average MTTR (hours)';
+        return 'Average MTTR';
       case 'clients':
         return 'Clients Affected';
       default:
         return '';
     }
+  };
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <Box sx={{ bgcolor: 'background.paper', p: 1, border: 1, borderColor: 'divider' }}>
+          <Typography variant="body2">{`Region: ${label || payload[0].payload.name}`}</Typography>
+          <Typography variant="body2" color="primary">
+            {`${getMetricLabel()}: ${payload[0].payload.displayValue}`}
+          </Typography>
+        </Box>
+      );
+    }
+    return null;
   };
 
   return (
@@ -137,9 +161,12 @@ const RegionalAnalysis = ({ data }) => {
                     margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
+                    <XAxis 
+                      type="number"
+                      tickFormatter={(value) => metric === 'mttr' ? formatTimeHHMMSS(value) : value}
+                    />
                     <YAxis dataKey="name" type="category" />
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                     <Legend />
                     <Bar
                       dataKey="value"
@@ -169,7 +196,7 @@ const RegionalAnalysis = ({ data }) => {
                       cx="50%"
                       cy="50%"
                       outerRadius={150}
-                      label
+                      label={({ name, value }) => metric === 'mttr' ? `${name}: ${formatTimeHHMMSS(value)}` : `${name}: ${value}`}
                     >
                       {metricData.map((entry, index) => (
                         <Cell
@@ -178,7 +205,7 @@ const RegionalAnalysis = ({ data }) => {
                         />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -198,8 +225,10 @@ const RegionalAnalysis = ({ data }) => {
                   <BarChart data={metricData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
+                    <YAxis 
+                      tickFormatter={(value) => metric === 'mttr' ? formatTimeHHMMSS(value) : value}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
                     <Legend />
                     <Bar
                       dataKey="value"

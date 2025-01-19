@@ -1304,26 +1304,86 @@ function calculateTrends(data) {
 
 function calculateRegionalStats(data) {
   const regions = {};
+  
+  // Initialize regions data
   data.forEach(incident => {
-    if (!regions[incident.region]) {
-      regions[incident.region] = {
-        incidents: 0,
-        mttr: 0,
-        clients: 0
+    const region = incident.region || 'Unknown';
+    if (!regions[region]) {
+      regions[region] = {
+        port_failures: { incident_count: 0, mttr: 0, clients: 0 },
+        degradations: { incident_count: 0, mttr: 0, clients: 0 },
+        multiple_los: { incident_count: 0, mttr: 0, clients: 0 },
+        olt_failures: { incident_count: 0, mttr: 0, clients: 0 }
       };
     }
-    regions[incident.region].incidents++;
-    regions[incident.region].mttr += parseTimeDuration(incident.mttr);
-    regions[incident.region].clients += parseInt(incident.clients_affected);
+
+    // Get duration using same logic as summary stats
+    let duration;
+    const totalDurationStr = incident['Total Duration (hr:min:sec)'] || incident['__EMPTY_7'];
+    
+    if (totalDurationStr) {
+      duration = parseTimeDuration(totalDurationStr);
+    } else {
+      duration = calculateDurationInHours(incident.reported_date, incident.cleared_date);
+    }
+
+    const type = incident.fault_type?.toLowerCase();
+    const clientsAffected = parseInt(incident.clients_affected) || 0;
+
+    if (type?.includes('port')) {
+      regions[region].port_failures.incident_count++;
+      regions[region].port_failures.mttr += duration;
+      regions[region].port_failures.clients += clientsAffected;
+    } else if (type?.includes('degrad')) {
+      regions[region].degradations.incident_count++;
+      regions[region].degradations.mttr += duration;
+      regions[region].degradations.clients += clientsAffected;
+    } else if (type?.includes('los')) {
+      regions[region].multiple_los.incident_count++;
+      regions[region].multiple_los.mttr += duration;
+      regions[region].multiple_los.clients += clientsAffected;
+    } else if (type?.includes('olt')) {
+      regions[region].olt_failures.incident_count++;
+      regions[region].olt_failures.mttr += duration;
+      regions[region].olt_failures.clients += clientsAffected;
+    }
   });
 
-  return Object.entries(regions).map(([region, stats]) => ({
+  // Format the data for response
+  const formatRegionalData = (type) => {
+    return Object.entries(regions).map(([region, data]) => {
+      const typeData = data[type];
+      const avgMTTR = typeData.incident_count ? typeData.mttr / typeData.incident_count : 0;
+      return {
     region,
-    incidents: stats.incidents,
-    avgMTTR: Number((stats.mttr / stats.incidents).toFixed(4)),
-    avgMTTRFormatted: formatTimeHHMMSS(stats.mttr / stats.incidents),
-    clientsAffected: stats.clients
-  }));
+        incident_count: typeData.incident_count,
+        mttr: avgMTTR,
+        mttrFormatted: formatTimeHHMMSS(avgMTTR),
+        clients: typeData.clients
+      };
+    });
+  };
+
+  return {
+    incidentsByRegion: {
+      port_failures: formatRegionalData('port_failures'),
+      degradations: formatRegionalData('degradations'),
+      multiple_los: formatRegionalData('multiple_los'),
+      olt_failures: formatRegionalData('olt_failures')
+    },
+    mttrByRegion: {
+      port_failures: formatRegionalData('port_failures'),
+      degradations: formatRegionalData('degradations'),
+      multiple_los: formatRegionalData('multiple_los'),
+      olt_failures: formatRegionalData('olt_failures')
+    },
+    clientsAffectedByRegion: {
+      port_failures: formatRegionalData('port_failures'),
+      degradations: formatRegionalData('degradations'),
+      multiple_los: formatRegionalData('multiple_los'),
+      olt_failures: formatRegionalData('olt_failures')
+    }
+  };
 }
 
 function calculateImpactStats(data) {
