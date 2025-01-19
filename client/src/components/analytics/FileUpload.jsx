@@ -265,6 +265,7 @@ const FileUpload = ({ onFileSelect }) => {
                 <TableCell>File Name</TableCell>
                 <TableCell>Upload Date</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Uploaded By</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -292,6 +293,9 @@ const FileUpload = ({ onFileSelect }) => {
                       }
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell>
+                    {file.uploaded_by_username}
                   </TableCell>
                   <TableCell>
                     <IconButton
