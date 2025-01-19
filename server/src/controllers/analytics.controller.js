@@ -280,21 +280,57 @@ function calculateSLA(duration, target) {
   return duration <= target ? 1 : 0;
 }
 
+function getWeekNumber(date) {
+  const currentDate = new Date(date);
+  currentDate.setHours(0, 0, 0, 0); // Normalize time to midnight
+  
+  // Get the first day of the year
+  const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
+  startOfYear.setHours(0, 0, 0, 0);
+  
+  // Get the first Monday of the year
+  const firstMonday = new Date(startOfYear);
+  while (firstMonday.getDay() !== 1) {
+    firstMonday.setDate(firstMonday.getDate() + 1);
+  }
+  
+  // Get the Monday of the current week
+  const currentMonday = new Date(currentDate);
+  const day = currentMonday.getDay();
+  const diff = currentMonday.getDate() - day + (day === 0 ? -6 : 1); // Adjust when it's Sunday
+  currentMonday.setDate(diff);
+  currentMonday.setHours(0, 0, 0, 0);
+  
+  // Calculate the difference in weeks
+  const weekNumber = Math.floor(
+    (currentMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)
+  ) + 1;
+  
+  return weekNumber;
+}
+
 function aggregateWeeklyData(incidents) {
   const weeklyData = {};
   
   incidents.forEach(incident => {
     const date = new Date(incident.reported_date);
-    // Get the Monday of the week
+    const weekNumber = getWeekNumber(date);
+    const year = date.getFullYear();
+    const weekKey = `${year}-W${weekNumber}`;
+    
+    // Get the Monday of this week for the period
     const monday = new Date(date);
-    monday.setDate(date.getDate() - date.getDay() + 1);
-    const weekKey = monday.toISOString().split('T')[0];
+    const day = monday.getDay();
+    const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
     
     if (!weeklyData[weekKey]) {
       weeklyData[weekKey] = {
-        period: weekKey,
-        totalIncidents: 0,
-        totalMTTR: 0,
+        week: weekNumber,
+        period: monday.toISOString().split('T')[0],
+        incidents: 0,
+        mttr: 0,
         clientsAffected: 0,
         portFailuresCount: 0,
         portFailuresWithinSLA: 0,
@@ -306,14 +342,21 @@ function aggregateWeeklyData(incidents) {
           degradation: 0,
           multipleLOS: 0,
           oltFailures: 0
+        },
+        clientsAffectedByType: {
+          portFailures: 0,
+          degradation: 0,
+          multipleLOS: 0,
+          oltFailures: 0
         }
       };
     }
     
     const week = weeklyData[weekKey];
-    week.totalIncidents++;
-    week.totalMTTR += parseFloat(incident.total_duration) || 0;
-    week.clientsAffected += extractTotalClients(incident);
+    week.incidents++;
+    week.mttr += parseFloat(incident.total_duration) || 0;
+    const clientsAffected = extractTotalClients(incident);
+    week.clientsAffected += clientsAffected;
     
     // Track by incident type
     const type = incident.fault_type?.toLowerCase();
@@ -321,14 +364,18 @@ function aggregateWeeklyData(incidents) {
       week.portFailuresCount++;
       week.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
       week.byIncidentType.portFailures++;
+      week.clientsAffectedByType.portFailures += clientsAffected;
     } else if (type?.includes('degrad')) {
       week.degradationCount++;
       week.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
       week.byIncidentType.degradation++;
+      week.clientsAffectedByType.degradation += clientsAffected;
     } else if (type?.includes('los')) {
       week.byIncidentType.multipleLOS++;
+      week.clientsAffectedByType.multipleLOS += clientsAffected;
     } else if (type?.includes('olt')) {
       week.byIncidentType.oltFailures++;
+      week.clientsAffectedByType.oltFailures += clientsAffected;
     }
     
     // Track by assigned group
@@ -336,39 +383,32 @@ function aggregateWeeklyData(incidents) {
     if (!week.byAssignedGroup[group]) {
       week.byAssignedGroup[group] = {
         totalIncidents: 0,
-        totalMTTR: 0,
-        clientsAffected: 0,
-        portFailuresCount: 0,
-        portFailuresWithinSLA: 0,
-        degradationCount: 0,
-        degradationWithinSLA: 0
+        mttr: 0,
+        clientsAffected: 0
       };
     }
     
     const groupStats = week.byAssignedGroup[group];
     groupStats.totalIncidents++;
-    groupStats.totalMTTR += parseFloat(incident.total_duration) || 0;
-    groupStats.clientsAffected += extractTotalClients(incident);
-    
-    if (type?.includes('port')) {
-      groupStats.portFailuresCount++;
-      groupStats.portFailuresWithinSLA += calculateSLA(incident.total_duration, 4);
-    } else if (type?.includes('degrad')) {
-      groupStats.degradationCount++;
-      groupStats.degradationWithinSLA += calculateSLA(incident.total_duration, 8);
-    }
+    groupStats.mttr += parseFloat(incident.total_duration) || 0;
+    groupStats.clientsAffected += clientsAffected;
   });
   
   // Calculate averages and percentages
   Object.values(weeklyData).forEach(week => {
-    week.avgMTTR = week.totalIncidents ? week.totalMTTR / week.totalIncidents : 0;
+    week.avgMTTR = week.incidents ? week.mttr / week.incidents : 0;
+    week.avgMTTRFormatted = formatTimeHHMMSS(week.avgMTTR);
+    week.mttrFormatted = formatTimeHHMMSS(week.mttr);
     week.portFailuresSLA = week.portFailuresCount ? 
       (week.portFailuresWithinSLA / week.portFailuresCount) * 100 : 0;
     week.degradationSLA = week.degradationCount ? 
       (week.degradationWithinSLA / week.degradationCount) * 100 : 0;
     
+    // Calculate averages and SLAs for assigned groups
     Object.values(week.byAssignedGroup).forEach(group => {
-      group.avgMTTR = group.totalIncidents ? group.totalMTTR / group.totalIncidents : 0;
+      group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+      group.avgMTTRFormatted = formatTimeHHMMSS(group.avgMTTR);
+      group.mttrFormatted = formatTimeHHMMSS(group.mttr);
       group.portFailuresSLA = group.portFailuresCount ? 
         (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
       group.degradationSLA = group.degradationCount ? 
@@ -376,7 +416,8 @@ function aggregateWeeklyData(incidents) {
     });
   });
   
-  return Object.values(weeklyData).sort((a, b) => a.period.localeCompare(b.period));
+  return Object.values(weeklyData)
+    .sort((a, b) => new Date(a.period) - new Date(b.period));
 }
 
 function aggregateMonthlyData(weeklyData) {
@@ -447,13 +488,18 @@ function aggregateMonthlyData(weeklyData) {
   // Calculate averages and percentages
   Object.values(monthlyData).forEach(month => {
     month.avgMTTR = month.totalIncidents ? month.totalMTTR / month.totalIncidents : 0;
+    month.avgMTTRFormatted = formatTimeHHMMSS(month.avgMTTR);
+    month.mttrFormatted = formatTimeHHMMSS(month.mttr);
     month.portFailuresSLA = month.portFailuresCount ? 
       (month.portFailuresWithinSLA / month.portFailuresCount) * 100 : 0;
     month.degradationSLA = month.degradationCount ? 
       (month.degradationWithinSLA / month.degradationCount) * 100 : 0;
     
+    // Calculate averages and SLAs for assigned groups
     Object.values(month.byAssignedGroup).forEach(group => {
-      group.avgMTTR = group.totalIncidents ? group.totalMTTR / group.totalIncidents : 0;
+      group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+      group.avgMTTRFormatted = formatTimeHHMMSS(group.avgMTTR);
+      group.mttrFormatted = formatTimeHHMMSS(group.mttr);
       group.portFailuresSLA = group.portFailuresCount ? 
         (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
       group.degradationSLA = group.degradationCount ? 
@@ -1044,20 +1090,26 @@ function calculateTrends(data) {
   data.forEach(incident => {
     const date = new Date(incident.reported_date);
     
-    // Get week number
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - date.getDay() + 1); // Start of week (Monday)
-    const weekKey = weekStart.toISOString().split('T')[0];
+    // Get week number and year for the key
     const weekNumber = getWeekNumber(date);
+    const year = date.getFullYear();
+    const weekKey = `${year}-W${weekNumber}`;
     
     // Get month
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
     // Initialize week data
     if (!weekly[weekKey]) {
+      // Get the Monday of this week for the period
+      const monday = new Date(date);
+      const day = monday.getDay();
+      const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
+      monday.setDate(diff);
+      monday.setHours(0, 0, 0, 0);
+      
       weekly[weekKey] = {
         week: weekNumber,
-        period: weekKey,
+        period: monday.toISOString().split('T')[0],
         incidents: 0,
         mttr: 0,
         clientsAffected: 0,
@@ -1166,30 +1218,48 @@ function calculateTrends(data) {
   // Calculate averages and SLA percentages
   Object.values(weekly).forEach(week => {
     week.avgMTTR = week.incidents ? week.mttr / week.incidents : 0;
+    week.avgMTTRFormatted = formatTimeHHMMSS(week.avgMTTR);
+    week.mttrFormatted = formatTimeHHMMSS(week.mttr);
     week.portFailuresSLA = week.portFailuresCount ? 
       (week.portFailuresWithinSLA / week.portFailuresCount) * 100 : 0;
     week.degradationSLA = week.degradationCount ? 
       (week.degradationWithinSLA / week.degradationCount) * 100 : 0;
     
+    // Calculate averages and SLAs for assigned groups
     Object.values(week.byAssignedGroup).forEach(group => {
       group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+      group.avgMTTRFormatted = formatTimeHHMMSS(group.avgMTTR);
+      group.mttrFormatted = formatTimeHHMMSS(group.mttr);
+      group.portFailuresSLA = group.portFailuresCount ? 
+        (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
+      group.degradationSLA = group.degradationCount ? 
+        (group.degradationWithinSLA / group.degradationCount) * 100 : 0;
     });
   });
 
   Object.values(monthly).forEach(month => {
     month.avgMTTR = month.incidents ? month.mttr / month.incidents : 0;
+    month.avgMTTRFormatted = formatTimeHHMMSS(month.avgMTTR);
+    month.mttrFormatted = formatTimeHHMMSS(month.mttr);
     month.portFailuresSLA = month.portFailuresCount ? 
       (month.portFailuresWithinSLA / month.portFailuresCount) * 100 : 0;
     month.degradationSLA = month.degradationCount ? 
       (month.degradationWithinSLA / month.degradationCount) * 100 : 0;
     
+    // Calculate averages and SLAs for assigned groups
     Object.values(month.byAssignedGroup).forEach(group => {
       group.avgMTTR = group.totalIncidents ? group.mttr / group.totalIncidents : 0;
+      group.avgMTTRFormatted = formatTimeHHMMSS(group.avgMTTR);
+      group.mttrFormatted = formatTimeHHMMSS(group.mttr);
+      group.portFailuresSLA = group.portFailuresCount ? 
+        (group.portFailuresWithinSLA / group.portFailuresCount) * 100 : 0;
+      group.degradationSLA = group.degradationCount ? 
+        (group.degradationWithinSLA / group.degradationCount) * 100 : 0;
     });
   });
 
   return {
-    weekly: Object.values(weekly).sort((a, b) => a.period.localeCompare(b.period)),
+    weekly: Object.values(weekly).sort((a, b) => new Date(a.period) - new Date(b.period)),
     monthly: Object.values(monthly).sort((a, b) => a.month.localeCompare(b.month))
   };
 }
@@ -1314,11 +1384,32 @@ function calculateImpactStats(data) {
 }
 
 function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const currentDate = new Date(date);
+  currentDate.setHours(0, 0, 0, 0); // Normalize time to midnight
+  
+  // Get the first day of the year
+  const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
+  startOfYear.setHours(0, 0, 0, 0);
+  
+  // Get the first Monday of the year
+  const firstMonday = new Date(startOfYear);
+  while (firstMonday.getDay() !== 1) {
+    firstMonday.setDate(firstMonday.getDate() + 1);
+  }
+  
+  // Get the Monday of the current week
+  const currentMonday = new Date(currentDate);
+  const day = currentMonday.getDay();
+  const diff = currentMonday.getDate() - day + (day === 0 ? -6 : 1); // Adjust when it's Sunday
+  currentMonday.setDate(diff);
+  currentMonday.setHours(0, 0, 0, 0);
+  
+  // Calculate the difference in weeks
+  const weekNumber = Math.floor(
+    (currentMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)
+  ) + 1;
+  
+  return weekNumber;
 }
 
 const getFileStatus = async (req, res) => {
@@ -1329,11 +1420,11 @@ const getFileStatus = async (req, res) => {
       'SELECT status, error_message FROM analytics_files WHERE id = $1',
       [id]
     );
-
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'File not found' });
     }
-
+    
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error getting file status:', error);
@@ -1599,7 +1690,7 @@ const generatePowerPoint = async (req, res) => {
     // Get the week number from the data
     const dates = result.rows.map(row => new Date(row.reported_date));
     const minDate = new Date(Math.min(...dates));
-    const weekNumber = getWeekNumber(minDate);
+    const weekNumber = getWeekNumber(minDate); // Now returns just the number
     const year = minDate.getFullYear();
 
     // Create PowerPoint presentation with theme colors
