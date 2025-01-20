@@ -66,23 +66,16 @@ exports.deleteVLANRange = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Check if any VLANs in this range are assigned
+    // Check if the VLAN range exists
     const rangeCheck = await client.query(`
-      SELECT vr.*, v.vlan 
+      SELECT vr.* 
       FROM vlan_ranges vr
-      LEFT JOIN vlans v ON 
-        v.ipran_cluster_id = vr.ipran_cluster_id AND
-        v.vlan BETWEEN vr.start_vlan AND vr.end_vlan
       WHERE vr.id = $1`,
       [id]
     );
 
     if (rangeCheck.rows.length === 0) {
       throw new Error('VLAN range not found');
-    }
-
-    if (rangeCheck.rows.some(row => row.vlan !== null)) {
-      throw new Error('Cannot delete range with assigned VLANs');
     }
 
     // Delete the range

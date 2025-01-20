@@ -51,7 +51,7 @@ const ManageClusters = () => {
 
   const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/clusters/${deleteId}`);
+      await api.delete(`/ipran-clusters/${deleteId}`);
       setSuccessMessage('Cluster deleted successfully');
       setShowSuccess(true);
       fetchClusters();
@@ -80,7 +80,7 @@ const ManageClusters = () => {
 
   const handleAdd = async () => {
     try {
-      await api.post('/clusters', { name: newCluster });
+      await api.post('/ipran-clusters', { name: newCluster });
       setSuccessMessage('Cluster added successfully');
       setShowSuccess(true);
       setNewCluster('');
