@@ -15,7 +15,7 @@ router.get('/blocks/utilization', ipController.getIPBlockUtilization);
 // IP Assignments
 router.get('/assignments', ipController.getIPAssignments);
 router.post('/assignments', ipController.createIPAssignment);
-router.put('/assignments/:id', ipController.updateIPAssignment);
+router.patch('/assignments/:id', ipController.updateIPAssignment);
 router.delete('/assignments/:id', ipController.deleteIPAssignment);
 
 module.exports = router;
